@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>NUROX V6.3 Intelligence Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+*{box-sizing:border-box;}
+body{margin:0;font-family:'Inter',sans-serif;background:linear-gradient(135deg,#0f172a,#020617);color:#e2e8f0;min-height:100vh;}
+.container{max-width:1100px;margin:auto;padding:60px 20px;}
+h1{text-align:center;font-size:40px;font-weight:800;margin-bottom:6px;}
+.subtitle{text-align:center;color:#94a3b8;margin-bottom:30px;}
+.auth-panel{background:rgba(30,41,59,0.9);padding:30px;border-radius:20px;max-width:420px;margin:0 auto 40px;}
+.auth-panel h2{margin:0 0 20px;font-size:20px;}
+.auth-panel input{width:100%;padding:12px 16px;border-radius:10px;border:1px solid #334155;background:#0f172a;color:white;font-size:15px;margin-bottom:12px;outline:none;}
+.auth-panel input:focus{border-color:#22c55e;}
+.auth-row{display:flex;gap:10px;}
+.btn{padding:12px 24px;border:none;border-radius:12px;font-weight:700;cursor:pointer;font-size:14px;transition:0.2s;}
+.btn-green{background:linear-gradient(135deg,#22c55e,#16a34a);color:white;flex:1;}
+.btn-blue{background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:white;flex:1;}
+.btn-red{background:#ef4444;color:white;padding:8px 18px;font-size:13px;}
+.btn:hover{opacity:0.85;transform:scale(1.02);}
+.topbar{display:flex;justify-content:space-between;align-items:center;background:rgba(30,41,59,0.7);padding:12px 20px;border-radius:14px;margin-bottom:20px;}
+.plan-badge{padding:4px 14px;border-radius:20px;font-size:13px;font-weight:700;}
+.plan-free{background:#1e40af;}.plan-pro{background:#15803d;}.plan-enterprise{background:#7c3aed;}
+.usage-bar-wrap{background:#1e293b;border-radius:10px;padding:14px 20px;margin-bottom:20px;}
+.usage-label{font-size:13px;color:#94a3b8;margin-bottom:6px;}
+.bar-bg{background:#334155;border-radius:6px;height:8px;margin-bottom:4px;}
+.bar-fill{height:8px;border-radius:6px;background:linear-gradient(90deg,#22c55e,#16a34a);transition:width 0.5s;}
+.bar-fill.warn{background:linear-gradient(90deg,#f59e0b,#d97706);}
+.bar-fill.danger{background:linear-gradient(90deg,#ef4444,#dc2626);}
+textarea{width:100%;height:140px;padding:20px;border-radius:16px;border:1px solid #334155;background:#1e293b;color:white;font-size:16px;outline:none;resize:vertical;}
+textarea:focus{border-color:#22c55e;}
+.analyze-btn{margin-top:16px;padding:16px 40px;border:none;border-radius:14px;background:linear-gradient(135deg,#22c55e,#16a34a);color:white;font-weight:700;cursor:pointer;font-size:16px;transition:0.3s;width:100%;}
+.analyze-btn:hover{transform:scale(1.02);}
+.analyze-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+.card{background:rgba(30,41,59,0.85);padding:30px;margin-top:24px;border-radius:22px;box-shadow:0 20px 50px rgba(0,0,0,0.5);}
+.section-title{font-size:18px;font-weight:700;margin-bottom:12px;}
+.badge{display:inline-block;padding:6px 16px;border-radius:30px;font-size:14px;font-weight:600;}
+.quant{background:#15803d;}.general{background:#2563eb;}
+.error-box{background:#7f1d1d;border:1px solid #ef4444;padding:16px 20px;border-radius:12px;margin-top:20px;}
+.hidden{display:none;}
+.chart-wrap{background:rgba(30,41,59,0.85);padding:30px;margin-top:24px;border-radius:22px;}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🚀 NUROX V6.3</h1>
+  <div class="subtitle">Intelligence Debate & Quant Platform</div>
+
+  <div id="authPanel" class="auth-panel">
+    <h2 id="authTitle">Login to NUROX</h2>
+    <input id="authUsername" type="text" placeholder="Username" />
+    <input id="authEmail" type="email" placeholder="Email (register only)" class="hidden" />
+    <input id="authPassword" type="password" placeholder="Password" />
+    <div class="auth-row" style="margin-top:4px;">
+      <button class="btn btn-green" onclick="doLogin()">Login</button>
+      <button class="btn btn-blue" onclick="toggleRegister()">Register</button>
+    </div>
+    <div id="authError" style="color:#f87171;margin-top:12px;font-size:14px;"></div>
+  </div>
+
+  <div id="appPanel" class="hidden">
+    <div class="topbar">
+      <span style="font-weight:600;">Welcome back 👋</span>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span id="planBadge" class="plan-badge"></span>
+        <button class="btn btn-red" onclick="doLogout()">Logout</button>
+      </div>
+    </div>
+    <div class="usage-bar-wrap">
+      <div class="usage-label">Daily Usage: <span id="usageText">Loading...</span></div>
+      <div class="bar-bg"><div id="usageBar" class="bar-fill" style="width:0%"></div></div>
+    </div>
+    <textarea id="question" placeholder="Ask NUROX anything... e.g. 'risk 100 reward 200 transaction 5 slippage 2'"></textarea>
+    <button class="analyze-btn" id="analyzeBtn" onclick="runDebate()">⚡ Analyze</button>
+    <div id="results"></div>
+    <div id="chartWrap" class="chart-wrap hidden">
+      <div class="section-title">📈 Monte Carlo Equity Curve</div>
+      <canvas id="equityChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = "http://127.0.0.1:8000";
+let token = localStorage.getItem("nurox_token") || null;
+let isRegisterMode = false;
+let chartInstance = null;
+
+window.onload = () => { token ? showApp() : showAuth(); };
+
+function showAuth() {
+  document.getElementById("authPanel").classList.remove("hidden");
+  document.getElementById("appPanel").classList.add("hidden");
+}
+
+function showApp() {
+  document.getElementById("authPanel").classList.add("hidden");
+  document.getElementById("appPanel").classList.remove("hidden");
+  loadUsage();
+}
+
+function toggleRegister() {
+  isRegisterMode = !isRegisterMode;
+  document.getElementById("authTitle").textContent = isRegisterMode ? "Create Account" : "Login to NUROX";
+  document.getElementById("authEmail").classList.toggle("hidden", !isRegisterMode);
+}
+
+async function doLogin() {
+  const username = document.getElementById("authUsername").value.trim();
+  const password = document.getElementById("authPassword").value.trim();
+  document.getElementById("authError").textContent = "";
+
+  if (isRegisterMode) {
+    const email = document.getElementById("authEmail").value.trim();
+    const res = await fetch(`${API}/register?username=${username}&email=${email}&password=${password}`, { method: "POST" });
+    if (res.ok) {
+      isRegisterMode = false; toggleRegister();
+      document.getElementById("authError").style.color = "#4ade80";
+      document.getElementById("authError").textContent = "Registered! Now login.";
+    } else {
+      const err = await res.json();
+      document.getElementById("authError").style.color = "#f87171";
+      document.getElementById("authError").textContent = err.detail || "Registration failed.";
+    }
+    return;
+  }
+
+  const form = new FormData();
+  form.append("username", username); form.append("password", password);
+  const res = await fetch(`${API}/login`, { method: "POST", body: form });
+  if (res.ok) {
+    const data = await res.json();
+    token = data.access_token;
+    localStorage.setItem("nurox_token", token);
+    showApp();
+  } else {
+    document.getElementById("authError").textContent = "Invalid credentials.";
+  }
+}
+
+function doLogout() {
+  token = null; localStorage.removeItem("nurox_token"); showAuth();
+}
+
+async function loadUsage() {
+  const res = await fetch(`${API}/usage`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) { doLogout(); return; }
+  const data = await res.json();
+  const plan = data.plan || "free";
+  const used = data.debates_today || 0;
+  const limit = data.daily_limit;
+  const unlimited = limit === -1;
+  const badge = document.getElementById("planBadge");
+  badge.textContent = plan.toUpperCase();
+  badge.className = `plan-badge plan-${plan}`;
+  if (unlimited) {
+    document.getElementById("usageText").textContent = `${used} today (Unlimited)`;
+    document.getElementById("usageBar").style.width = "10%";
+  } else {
+    const pct = Math.min((used / limit) * 100, 100);
+    document.getElementById("usageText").textContent = `${used} / ${limit} debates today`;
+    const bar = document.getElementById("usageBar");
+    bar.style.width = pct + "%";
+    bar.className = `bar-fill ${pct >= 90 ? "danger" : pct >= 70 ? "warn" : ""}`;
+  }
+}
+
+function renderEquityChart(data) {
+  const wrap = document.getElementById("chartWrap");
+  wrap.classList.remove("hidden");
+  const ctx = document.getElementById("equityChart").getContext("2d");
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: data.map((_, i) => i + 1),
+      datasets: [{
+        label: "Equity Curve",
+        data: data,
+        borderColor: "#22c55e",
+        backgroundColor: "rgba(34,197,94,0.08)",
+        borderWidth: 2,
+        pointRadius: 0,
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { labels: { color: "#e2e8f0" } } },
+      scales: {
+        x: { ticks: { color: "#94a3b8" }, grid: { color: "#1e293b" } },
+        y: { ticks: { color: "#94a3b8" }, grid: { color: "#1e293b" } }
+      }
+    }
+  });
+}
+
+async function runDebate() {
+  const question = document.getElementById("question").value.trim();
+  if (!question) return;
+  const btn = document.getElementById("analyzeBtn");
+  btn.disabled = true; btn.textContent = "⏳ Analyzing...";
+  document.getElementById("results").innerHTML = "";
+  document.getElementById("chartWrap").classList.add("hidden");
+
+  const res = await fetch(`${API}/debate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+    body: JSON.stringify({ question })
+  });
+
+  btn.disabled = false; btn.textContent = "⚡ Analyze";
+
+  if (res.status === 429) {
+    const err = await res.json();
+    document.getElementById("results").innerHTML = `<div class="error-box">⚠️ <strong>${err.detail.message}</strong>${err.detail.upgrade ? '<br><br>🚀 Upgrade your plan for more access.' : ''}</div>`;
+    return;
+  }
+  if (res.status === 401) { doLogout(); return; }
+  if (!res.ok) {
+    document.getElementById("results").innerHTML = `<div class="error-box">❌ Something went wrong. Try again.</div>`;
+    return;
+  }
+
+  const data = await res.json();
+  let html = "";
+  html += `<div class="card"><div class="section-title">🧭 Mode</div><span class="badge ${data.mode}">${data.mode.toUpperCase()}</span></div>`;
+  data.transcript.forEach(msg => {
+    html += `<div class="card"><div class="section-title">${msg.role}</div>${marked.parse(msg.content)}</div>`;
+  });
+  if (data.deterministic) html += `<div class="card"><div class="section-title">🎯 Deterministic Analysis</div>${marked.parse(data.deterministic)}</div>`;
+  if (data.simulation)    html += `<div class="card"><div class="section-title">📊 Simulation</div>${marked.parse(data.simulation)}</div>`;
+  if (data.risk_alerts)   html += `<div class="card"><div class="section-title">⚠ Risk Alerts</div>${marked.parse(data.risk_alerts)}</div>`;
+  html += `<div class="card"><div class="section-title">🏁 Final Decision</div>${marked.parse(data.final_answer)}</div>`;
+  html += `<div class="card"><div class="section-title">⚖ Authority: ${data.authority} | 📈 Confidence: ${data.confidence}</div></div>`;
+  if (data.usage) {
+    const u = data.usage;
+    const lim = u.daily_limit === -1 ? "∞" : u.daily_limit;
+    html += `<div class="card" style="font-size:13px;color:#94a3b8;">💡 Usage: ${u.used_today}/${lim} today | ${u.used_monthly}/${u.monthly_limit === -1 ? "∞" : u.monthly_limit} this month</div>`;
+  }
+  document.getElementById("results").innerHTML = html;
+
+  // Render equity chart if data exists
+  if (data.simulation_data && data.simulation_data.length > 0) {
+    renderEquityChart(data.simulation_data);
+  }
+
+  loadUsage();
+}
+</script>
+</body>
+</html>
