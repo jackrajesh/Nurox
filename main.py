@@ -33,11 +33,22 @@ app = FastAPI(title="NUROX V6.3 Intelligence Platform")
 # -------------------------
 # CORS (Production Ready)
 # -------------------------
-FRONTEND_URL = os.getenv("FRONTEND_URL", "*")
+from fastapi.middleware.cors import CORSMiddleware
+import os
+
+FRONTEND_URL = os.getenv("FRONTEND_URL")
+
+origins = []
+
+if FRONTEND_URL:
+    origins.append(FRONTEND_URL)
+else:
+    # fallback for development
+    origins = ["http://localhost:3000"]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL] if FRONTEND_URL != "*" else ["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
