@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
+from pydantic import BaseModel
 
 from database.connection import SessionLocal
 from database.models import User
@@ -14,9 +15,7 @@ from config import SECRET_KEY, ALGORITHM
 # ============================
 
 router = APIRouter()
-
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 
@@ -33,6 +32,16 @@ def get_db():
 
 
 # ============================
+# REQUEST SCHEMAS
+# ============================
+
+class RegisterRequest(BaseModel):
+    username: str
+    email: str
+    password: str
+
+
+# ============================
 # TOKEN CREATION
 # ============================
 
@@ -44,14 +53,14 @@ def create_access_token(data: dict):
 
 
 # ============================
-# REGISTER
+# REGISTER (JSON BODY)
 # ============================
 
 @router.post("/register")
-def register(username: str, email: str, password: str, db: Session = Depends(get_db)):
+def register(req: RegisterRequest, db: Session = Depends(get_db)):
 
     existing_user = db.query(User).filter(
-        (User.username == username) | (User.email == email)
+        (User.username == req.username) | (User.email == req.email)
     ).first()
 
     if existing_user:
@@ -61,9 +70,9 @@ def register(username: str, email: str, password: str, db: Session = Depends(get
         )
 
     new_user = User(
-        username=username,
-        email=email,
-        hashed_password=hash_password(password)
+        username=req.username,
+        email=req.email,
+        hashed_password=hash_password(req.password)
     )
 
     db.add(new_user)
@@ -74,7 +83,7 @@ def register(username: str, email: str, password: str, db: Session = Depends(get
 
 
 # ============================
-# LOGIN (OAuth2 Compatible)
+# LOGIN (OAuth2 Form)
 # ============================
 
 @router.post("/login")

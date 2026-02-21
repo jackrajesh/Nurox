@@ -5,133 +5,224 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
 *{box-sizing:border-box;}
-body{margin:0;font-family:'Inter',sans-serif;background:linear-gradient(135deg,#0f172a,#020617);color:#e2e8f0;min-height:100vh;}
-.container{max-width:1100px;margin:auto;padding:60px 20px;}
-h1{text-align:center;font-size:40px;font-weight:800;margin-bottom:6px;}
-.subtitle{text-align:center;color:#94a3b8;margin-bottom:30px;}
-.auth-panel{background:rgba(30,41,59,0.9);padding:30px;border-radius:20px;max-width:420px;margin:0 auto 40px;}
-.auth-panel h2{margin:0 0 20px;font-size:20px;}
-.auth-panel input{width:100%;padding:12px 16px;border-radius:10px;border:1px solid #334155;background:#0f172a;color:white;font-size:15px;margin-bottom:12px;outline:none;}
-.auth-panel input:focus{border-color:#22c55e;}
-.auth-row{display:flex;gap:10px;}
-.btn{padding:12px 24px;border:none;border-radius:12px;font-weight:700;cursor:pointer;font-size:14px;transition:0.2s;}
-.btn-green{background:linear-gradient(135deg,#22c55e,#16a34a);color:white;flex:1;}
-.btn-blue{background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:white;flex:1;}
-.btn-red{background:#ef4444;color:white;padding:8px 18px;font-size:13px;}
-.btn:hover{opacity:0.85;transform:scale(1.02);}
-.hidden{display:none;}
+body{
+    margin:0;
+    font-family:'Inter',sans-serif;
+    background:linear-gradient(135deg,#0f172a,#020617);
+    color:#e2e8f0;
+    min-height:100vh;
+}
+.container{
+    max-width:1100px;
+    margin:auto;
+    padding:60px 20px;
+}
+h1{
+    text-align:center;
+    font-size:40px;
+    font-weight:800;
+    margin-bottom:6px;
+}
+.subtitle{
+    text-align:center;
+    color:#94a3b8;
+    margin-bottom:30px;
+}
+.auth-panel{
+    background:rgba(30,41,59,0.9);
+    padding:30px;
+    border-radius:20px;
+    max-width:420px;
+    margin:0 auto 40px;
+}
+.auth-panel h2{
+    margin:0 0 20px;
+    font-size:20px;
+}
+.auth-panel input{
+    width:100%;
+    padding:12px 16px;
+    border-radius:10px;
+    border:1px solid #334155;
+    background:#0f172a;
+    color:white;
+    font-size:15px;
+    margin-bottom:12px;
+    outline:none;
+}
+.auth-panel input:focus{
+    border-color:#22c55e;
+}
+.auth-row{
+    display:flex;
+    gap:10px;
+}
+.btn{
+    padding:12px 24px;
+    border:none;
+    border-radius:12px;
+    font-weight:700;
+    cursor:pointer;
+    font-size:14px;
+    transition:0.2s;
+}
+.btn-green{
+    background:linear-gradient(135deg,#22c55e,#16a34a);
+    color:white;
+    flex:1;
+}
+.btn-blue{
+    background:linear-gradient(135deg,#3b82f6,#1d4ed8);
+    color:white;
+    flex:1;
+}
+.btn:hover{
+    opacity:0.85;
+    transform:scale(1.02);
+}
+.hidden{
+    display:none;
+}
+#errorBox{
+    margin-top:12px;
+    font-size:14px;
+}
 </style>
 </head>
+
 <body>
 <div class="container">
+
 <h1>🚀 NUROX V6.3</h1>
 <div class="subtitle">Intelligence Debate & Quant Platform</div>
 
 <div id="authPanel" class="auth-panel">
-<h2 id="authTitle">Login to NUROX</h2>
-<input id="authUsername" type="text" placeholder="Username" />
-<input id="authEmail" type="email" placeholder="Email (register only)" class="hidden" />
-<input id="authPassword" type="password" placeholder="Password" />
-<div class="auth-row" style="margin-top:4px;">
-<button class="btn btn-green" onclick="doLogin()">Login</button>
-<button class="btn btn-blue" onclick="toggleRegister()">Register</button>
+    <h2 id="authTitle">Login to NUROX</h2>
+
+    <input id="authUsername" type="text" placeholder="Username" />
+    <input id="authEmail" type="email" placeholder="Email (register only)" class="hidden" />
+    <input id="authPassword" type="password" placeholder="Password" />
+
+    <div class="auth-row" style="margin-top:4px;">
+        <button class="btn btn-green" onclick="handleAuth()">Login</button>
+        <button class="btn btn-blue" onclick="toggleRegister()">Register</button>
+    </div>
+
+    <div id="errorBox"></div>
 </div>
-<div id="authError" style="color:#f87171;margin-top:12px;font-size:14px;"></div>
-</div>
+
 </div>
 
 <script>
 const API = "https://nurox-eqsd.onrender.com";
-let token = localStorage.getItem("nurox_token") || null;
 let isRegisterMode = false;
 
-window.onload = () => {
-    token ? showApp() : showAuth();
-};
-
-function showAuth() {
-    document.getElementById("authPanel").classList.remove("hidden");
+function setError(message, success=false){
+    const box = document.getElementById("errorBox");
+    box.style.color = success ? "#4ade80" : "#f87171";
+    box.textContent = message;
 }
 
-function toggleRegister() {
+function toggleRegister(){
     isRegisterMode = !isRegisterMode;
     document.getElementById("authTitle").textContent =
         isRegisterMode ? "Create Account" : "Login to NUROX";
-    document.getElementById("authEmail").classList.toggle("hidden", !isRegisterMode);
-    document.getElementById("authError").textContent = "";
+
+    document.getElementById("authEmail")
+        .classList.toggle("hidden", !isRegisterMode);
+
+    setError("");
 }
 
-async function doLogin() {
+async function handleAuth(){
     const username = document.getElementById("authUsername").value.trim();
     const password = document.getElementById("authPassword").value.trim();
-    const errorBox = document.getElementById("authError");
-    errorBox.textContent = "";
+    const email = document.getElementById("authEmail").value.trim();
 
-    if (!username || !password) {
-        errorBox.textContent = "Please fill all fields.";
+    if(!username || !password){
+        setError("Please fill all required fields.");
         return;
     }
 
-    try {
+    try{
 
-        if (isRegisterMode) {
-            const email = document.getElementById("authEmail").value.trim();
-            if (!email) {
-                errorBox.textContent = "Email required for registration.";
+        if(isRegisterMode){
+
+            if(!email){
+                setError("Email required for registration.");
                 return;
             }
 
-            const res = await fetch(`${API}/register`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
+            const res = await fetch(`${API}/register`,{
+                method:"POST",
+                headers:{ "Content-Type":"application/json" },
                 body: JSON.stringify({ username, email, password })
             });
 
-            const data = await res.json();
+            const data = await res.json().catch(()=>({}));
 
-            if (!res.ok) {
-                errorBox.textContent = data.detail || "Registration failed.";
+            if(!res.ok){
+                showBackendError(data);
                 return;
             }
 
-            errorBox.style.color = "#4ade80";
-            errorBox.textContent = "Registered successfully. Now login.";
+            setError("Registration successful. Please login.", true);
             toggleRegister();
             return;
         }
 
+        // LOGIN
         const form = new FormData();
         form.append("username", username);
         form.append("password", password);
 
-        const res = await fetch(`${API}/login`, {
-            method: "POST",
+        const res = await fetch(`${API}/login`,{
+            method:"POST",
             body: form
         });
 
-        const data = await res.json();
+        const data = await res.json().catch(()=>({}));
 
-        if (!res.ok) {
-            errorBox.textContent = "Invalid credentials.";
+        if(!res.ok){
+            showBackendError(data);
             return;
         }
 
-        token = data.access_token;
-        localStorage.setItem("nurox_token", token);
+        localStorage.setItem("nurox_token", data.access_token);
+        setError("Login successful 🎉", true);
 
-        errorBox.style.color = "#4ade80";
-        errorBox.textContent = "Login successful.";
+        console.log("Logged in");
 
-        // redirect or load app logic here
-        console.log("Logged in!");
-
-    } catch (err) {
-        errorBox.textContent = "Network error. Backend unreachable.";
+    }catch(err){
         console.error(err);
+        setError("Network error. Backend unreachable.");
     }
 }
+
+function showBackendError(data){
+
+    if(!data){
+        setError("Something went wrong.");
+        return;
+    }
+
+    if(typeof data.detail === "string"){
+        setError(data.detail);
+        return;
+    }
+
+    if(Array.isArray(data.detail)){
+        const messages = data.detail.map(e => e.msg).join(", ");
+        setError(messages);
+        return;
+    }
+
+    setError("Unexpected error.");
+}
 </script>
+
 </body>
 </html>

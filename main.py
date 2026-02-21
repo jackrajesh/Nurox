@@ -8,7 +8,7 @@ import re
 import numpy as np
 import os
 import logging
-
+logging.basicConfig(level=logging.INFO)
 from config import GROQ_API_KEY_AI1, GROQ_API_KEY_AI2, MODEL_NAME
 from database.connection import engine
 from database.models import Base, User, DebateHistory
@@ -31,20 +31,17 @@ app = FastAPI(title="NUROX V6.3 Intelligence Platform")
 
 
 # -------------------------
-# CORS (Production Ready)
+# CORS (Stable Production Version)
 # -------------------------
-from fastapi.middleware.cors import CORSMiddleware
-import os
-
 FRONTEND_URL = os.getenv("FRONTEND_URL")
 
-origins = []
-
 if FRONTEND_URL:
-    origins.append(FRONTEND_URL)
+    origins = [FRONTEND_URL]
 else:
-    # fallback for development
-    origins = ["http://localhost:3000"]
+    origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
 
 app.add_middleware(
     CORSMiddleware,

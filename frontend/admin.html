@@ -3,6 +3,7 @@
 <head>
 <title>NUROX Admin Panel</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#0f172a,#020617);color:#e2e8f0;min-height:100vh;}
@@ -15,17 +16,19 @@ body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#0f172a,#0
 .btn{padding:12px 24px;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px;transition:0.2s;}
 .btn:hover{opacity:0.85;}
 .btn-red{background:linear-gradient(135deg,#ef4444,#dc2626);color:white;width:100%;}
-.btn-green{background:linear-gradient(135deg,#22c55e,#16a34a);color:white;}
 .btn-gray{background:#334155;color:#e2e8f0;}
 .btn-sm{padding:7px 16px;font-size:13px;}
 .err{color:#f87171;font-size:13px;margin-top:10px;text-align:center;}
+.success{color:#4ade80;font-size:13px;margin-top:10px;text-align:center;}
 .topbar{background:rgba(15,23,42,0.98);padding:14px 32px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1e293b;}
 .admin-badge{background:#ef4444;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;}
 .container{max-width:1200px;margin:auto;padding:32px 20px;}
 .hidden{display:none;}
 .loading{color:#94a3b8;font-size:14px;padding:20px 0;text-align:center;}
+pre{white-space:pre-wrap;word-wrap:break-word;}
 </style>
 </head>
+
 <body>
 
 <div id="loginPage">
@@ -36,7 +39,7 @@ body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#0f172a,#0
       <input id="adminUser" type="text" placeholder="Admin Username" />
       <input id="adminPass" type="password" placeholder="Admin Password" />
       <button class="btn btn-red" onclick="doAdminLogin()">Access Panel</button>
-      <div class="err" id="loginErr"></div>
+      <div id="loginErr" class="err"></div>
     </div>
   </div>
 </div>
@@ -57,26 +60,32 @@ body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#0f172a,#0
 const API = "https://nurox-eqsd.onrender.com";
 let adminCredentials = null;
 
+function setLoginError(message){
+  const box = document.getElementById("loginErr");
+  box.textContent = message;
+}
+
 async function doAdminLogin() {
+
   const u = document.getElementById("adminUser").value.trim();
   const p = document.getElementById("adminPass").value.trim();
-  const errBox = document.getElementById("loginErr");
-  errBox.textContent = "";
+  setLoginError("");
 
   if (!u || !p) {
-    errBox.textContent = "Fill in both fields.";
+    setLoginError("Fill in both fields.");
     return;
   }
 
   adminCredentials = btoa(u + ":" + p);
 
   try {
+
     const res = await fetch(`${API}/shadow-admin/stats`, {
       headers: { "Authorization": `Basic ${adminCredentials}` }
     });
 
     if (!res.ok) {
-      errBox.textContent = "Wrong credentials.";
+      setLoginError("Wrong credentials.");
       adminCredentials = null;
       return;
     }
@@ -84,12 +93,13 @@ async function doAdminLogin() {
     document.getElementById("loginPage").classList.add("hidden");
     document.getElementById("mainPanel").classList.remove("hidden");
 
-    loadStats();
-    loadUsers();
+    await loadStats();
+    await loadUsers();
 
   } catch (err) {
-    errBox.textContent = "Cannot connect to server.";
     console.error(err);
+    setLoginError("Cannot connect to server.");
+    adminCredentials = null;
   }
 }
 
@@ -97,14 +107,30 @@ function doLogout() {
   adminCredentials = null;
   document.getElementById("loginPage").classList.remove("hidden");
   document.getElementById("mainPanel").classList.add("hidden");
+  document.getElementById("statsGrid").innerHTML = `<div class="loading">Loading stats...</div>`;
+  document.getElementById("usersTable").innerHTML = `<div class="loading">Loading users...</div>`;
+}
+
+async function safeFetch(endpoint){
+  const res = await fetch(`${API}${endpoint}`, {
+    headers: { "Authorization": `Basic ${adminCredentials}` }
+  });
+
+  if(res.status === 401){
+    doLogout();
+    throw new Error("Unauthorized");
+  }
+
+  if(!res.ok){
+    throw new Error("Request failed");
+  }
+
+  return res.json();
 }
 
 async function loadStats() {
   try {
-    const res = await fetch(`${API}/shadow-admin/stats`, {
-      headers: { "Authorization": `Basic ${adminCredentials}` }
-    });
-    const data = await res.json();
+    const data = await safeFetch("/shadow-admin/stats");
     document.getElementById("statsGrid").innerHTML =
       `<pre style="color:#22c55e;">${JSON.stringify(data, null, 2)}</pre>`;
   } catch (err) {
@@ -115,10 +141,7 @@ async function loadStats() {
 
 async function loadUsers() {
   try {
-    const res = await fetch(`${API}/shadow-admin/users`, {
-      headers: { "Authorization": `Basic ${adminCredentials}` }
-    });
-    const data = await res.json();
+    const data = await safeFetch("/shadow-admin/users");
     document.getElementById("usersTable").innerHTML =
       `<pre style="color:#93c5fd;">${JSON.stringify(data, null, 2)}</pre>`;
   } catch (err) {
@@ -128,5 +151,6 @@ async function loadUsers() {
 }
 
 </script>
+
 </body>
 </html>
