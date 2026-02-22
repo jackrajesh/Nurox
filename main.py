@@ -8,7 +8,10 @@ import re
 import numpy as np
 import os
 import logging
+
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 from config import GROQ_API_KEY_AI1, GROQ_API_KEY_AI2, MODEL_NAME
 from database.connection import engine
 from database.models import Base, User, DebateHistory
@@ -17,31 +20,16 @@ from services.usage_limiter import UsageLimiter
 from admin.routes import router as admin_router
 
 
-# -------------------------
-# Logging (Production Safe)
-# -------------------------
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-
-# -------------------------
+# ─────────────────────────────────────────
 # App Init
-# -------------------------
+# ─────────────────────────────────────────
 app = FastAPI(title="NUROX V6.3 Intelligence Platform")
 
-
-# -------------------------
-# CORS (Stable Production Version)
-# -------------------------
 FRONTEND_URL = os.getenv("FRONTEND_URL")
-
-if FRONTEND_URL:
-    origins = [FRONTEND_URL]
-else:
-    origins = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-    ]
+origins = [FRONTEND_URL] if FRONTEND_URL else [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
 
 app.add_middleware(
     CORSMiddleware,
@@ -51,33 +39,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# -------------------------
-# Startup Event (DB Init)
-# -------------------------
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
 
-
-# -------------------------
-# Routers
-# -------------------------
 app.include_router(auth_router)
 app.include_router(admin_router)
 
 
-# -------------------------
+# ─────────────────────────────────────────
 # Schemas
-# -------------------------
+# ─────────────────────────────────────────
 class DebateRequest(BaseModel):
     question: str
-
 
 class DebateMessage(BaseModel):
     role: str
     content: str
-
 
 class DebateResponse(BaseModel):
     mode: str
@@ -92,12 +70,11 @@ class DebateResponse(BaseModel):
     usage: dict
 
 
-# -------------------------
-# LLM Caller (Stable Version)
-# -------------------------
-async def call_llm(api_key, system_prompt, messages, temperature=0.1):
+# ─────────────────────────────────────────
+# LLM Caller
+# ─────────────────────────────────────────
+async def call_llm(api_key: str, system_prompt: str, messages: list, temperature: float = 0.0) -> str:
     timeout = httpx.Timeout(60.0, connect=10.0)
-
     async with httpx.AsyncClient(timeout=timeout) as client:
         response = await client.post(
             "https://api.groq.com/openai/v1/chat/completions",
@@ -112,222 +89,283 @@ async def call_llm(api_key, system_prompt, messages, temperature=0.1):
                 "max_tokens": 1500,
             },
         )
-
     if response.status_code != 200:
         raise HTTPException(status_code=500, detail=f"LLM Error: {response.text}")
-
     data = response.json()
-
     if not data.get("choices"):
-        raise HTTPException(status_code=500, detail="Invalid LLM response structure.")
-
+        raise HTTPException(status_code=500, detail="Invalid LLM response.")
     return data["choices"][0]["message"]["content"].strip()
 
 
-# -------------------------
-# Utility Logic
-# -------------------------
-def detect_mode(question: str):
-    keywords = ["risk", "reward", "win rate", "break", "transaction", "slippage"]
-    return "quant" if any(k in question.lower() for k in keywords) else "general"
+# ─────────────────────────────────────────
+# Mode Detection
+# ─────────────────────────────────────────
+QUANT_KEYWORDS = ["risk", "reward", "win rate", "winrate", "break even", "breakeven",
+                  "transaction", "slippage", "rr ratio", "risk reward", "pip", "lot size",
+                  "position size", "drawdown", "expectancy", "kelly"]
+
+def detect_mode(question: str) -> str:
+    q = question.lower()
+    return "quant" if any(k in q for k in QUANT_KEYWORDS) else "general"
 
 
-def deterministic_engine(question: str):
+# ─────────────────────────────────────────
+# Deterministic Engine
+# Python computes all math — LLM only explains
+# ─────────────────────────────────────────
+def deterministic_engine(question: str) -> dict | None:
     nums = list(map(float, re.findall(r"\d+\.?\d*", question)))
-
     if len(nums) < 2:
-        return None, None, None, None
+        return None
 
-    risk       = nums[0]
-    reward     = nums[1]
-    transaction = nums[2] if len(nums) >= 3 else 0
-    slippage   = nums[3] if len(nums) >= 4 else 0
+    risk        = nums[0]
+    reward      = nums[1]
+    transaction = nums[2] if len(nums) >= 3 else 0.0
+    slippage    = nums[3] if len(nums) >= 4 else 0.0
 
-    net_win  = reward - transaction - slippage
-    net_loss = -risk - transaction
-    denom    = net_win - net_loss
+    if risk <= 0 or reward <= 0:
+        return None
+
+    # All formulas computed in Python — never touched by LLM
+    net_win     = reward - transaction - slippage
+    net_loss    = -(risk + transaction)
+    denom       = net_win - net_loss
 
     if denom == 0:
-        return None, None, None, None
+        return None
 
-    p  = -net_loss / denom
-    ev = (p * net_win) + ((1 - p) * net_loss)
+    breakeven_prob  = -net_loss / denom              # minimum win rate to break even
+    ev              = (breakeven_prob * net_win) + ((1 - breakeven_prob) * net_loss)
+    rr_ratio        = reward / risk                  # e.g. 2.0 for 1:2
+    rr_string       = f"1:{rr_ratio:.2f}"           # always 1:X format
 
-    return p, ev, risk, reward
+    return {
+        "risk":           risk,
+        "reward":         reward,
+        "transaction":    transaction,
+        "slippage":       slippage,
+        "net_win":        net_win,
+        "net_loss":       net_loss,
+        "breakeven_pct":  round(breakeven_prob * 100, 2),
+        "ev":             round(ev, 4),
+        "rr_ratio":       round(rr_ratio, 2),
+        "rr_string":      rr_string,
+        "is_stable":      breakeven_prob > 0.4,
+    }
 
 
-def monte_carlo_equity(win_prob, reward, risk, trades=200):
-    """
-    Simulate equity curve using ACTUAL risk/reward from the question.
-    Normalise to percentage of capital per trade (assume 1% risk per trade baseline,
-    scaled by the actual RR ratio so the chart reflects the real setup).
-    """
-    equity_curve = []
-    capital      = 1.0
+# ─────────────────────────────────────────
+# Monte Carlo — dynamic per question
+# ─────────────────────────────────────────
+def monte_carlo_equity(quant: dict, trades: int = 200) -> list[float]:
+    win_prob    = quant["breakeven_pct"] / 100
+    rr          = quant["rr_ratio"]
+    risk_pct    = 0.01                 # 1% capital risked per trade
+    reward_pct  = risk_pct * rr        # scales with actual RR
 
-    # Normalise: treat risk as 1 unit, reward scales accordingly
-    rr           = reward / risk if risk > 0 else 1.0
-    risk_pct     = 0.01                  # risk 1% of capital per trade
-    reward_pct   = risk_pct * rr         # reward scales with actual RR
-
+    capital     = 1.0
+    curve       = []
     for _ in range(trades):
         if np.random.rand() < win_prob:
             capital *= (1 + reward_pct)
         else:
             capital *= (1 - risk_pct)
-        equity_curve.append(round(capital, 4))
+        curve.append(round(capital, 4))
+    return curve
 
-    return equity_curve
 
+# ─────────────────────────────────────────
+# PROMPTS
+# ─────────────────────────────────────────
 
-PROMPT_BUILDER = """You are NUROX — a world-class all-rounder intelligence system. You are an expert in every domain: mathematics, science, trading, finance, coding, history, logic, language, and more.
+# BUILDER: First debater — deep analysis, no math (Python handles math)
+def build_prompt_builder(mode: str, quant: dict | None) -> str:
+    base = """You are NUROX Builder — the first AI in a two-AI debate system. Your job is deep analysis and reasoning.
 
-## STRICT RULES — NEVER BREAK THESE:
+## YOUR ROLE IN THE DEBATE:
+- You are the ANALYST. You provide thorough reasoning, context, and explanation.
+- A second AI (the Auditor) will review your work and either confirm or correct you.
+- So be thorough, structured, and honest about any uncertainty.
 
-### ACCURACY
-- Every answer must be 100% factually correct. Zero tolerance for wrong answers.
-- For ANY math question: compute it step-by-step, show the working, give the exact final answer.
-- NEVER say "approximately" or "around" for calculations that have exact answers.
-- If you are unsure about something, say so clearly. Never hallucinate facts.
+## ABSOLUTE RULES:
+1. Be 100% factually accurate. Never guess. Never hallucinate.
+2. For math questions: show Given → Formula → Working → Answer clearly.
+3. Be direct. No "Great question!", no filler, no waffle.
+4. Use **bold** only for the final answer or critical insight.
+5. Use headers for multi-part answers. Keep it clean.
+6. Max 2 emojis. Not every line needs one.
+7. If something is wrong in the question, correct it with proof.
 
-### MATH & CALCULATIONS
-- Always show: Given → Formula → Step-by-step working → Final Answer
-- Basic arithmetic must be computed exactly. 1+1=2, not "around 2".
-- Express fractions, ratios, and percentages in their simplest correct form.
-- Double-check every calculation before responding.
-
-### TRADING & FINANCE (when relevant)
-- Risk:Reward (RR) ratio is ALWAYS written as 1:X — Risk is ALWAYS 1, Reward is X.
-  - Formula: X = Reward / Risk. Then express as 1:X.
-  - risk $1, make $2 → 2/1 = 2 → RR = 1:2 ✅ NEVER write this as 2:1 ❌
-  - risk $1, make $3 → 3/1 = 3 → RR = 1:3 ✅
-  - risk $50, make $150 → 150/50 = 3 → RR = 1:3 ✅
-- Break-even win rate = Risk / (Risk + Reward) × 100%
-- EV = (Win% × Reward) − (Loss% × Risk)
-- NEVER express RR as X:1 unless the user explicitly asks for reward-to-risk ratio.
-
-### FORMAT
-- Use **bold** ONLY for the final answer or the most critical insight.
-- Use clear headers for multi-part answers.
-- Be concise — no filler, no fluff, no unnecessary words.
-- Use 1-2 emojis maximum. Do not spam emojis.
-- Never start with "Great question!" or similar sycophantic phrases.
-
-### CORRECTIONS
-- If the user states something factually wrong, correct them directly and politely with proof.
-- Show them why their assumption is wrong and give the right answer.
+## DOMAINS YOU COVER:
+Mathematics, Physics, Chemistry, Biology, History, Geography, Economics,
+Trading & Finance, Programming & Code, Logic & Reasoning, Language & Grammar,
+Science & Technology, General Knowledge — everything.
 """
 
-PROMPT_AUDITOR = """You are NUROX Auditor — the final verification layer of the NUROX intelligence system.
+    if mode == "quant" and quant:
+        # Inject Python-computed facts directly — LLM only explains, never recalculates
+        q = quant
+        math_facts = f"""
+## ⚠️ VERIFIED MATH FACTS (computed by Python — DO NOT recalculate, DO NOT override):
+- Risk         = {q['risk']}
+- Reward       = {q['reward']}
+- Transaction  = {q['transaction']}
+- Slippage     = {q['slippage']}
+- Net Win      = {q['net_win']}
+- Net Loss     = {q['net_loss']}
+- **RR Ratio   = {q['rr_string']}** ← ALWAYS in 1:X format, NEVER X:1
+- **Break-even Win Rate = {q['breakeven_pct']}%**
+- **Expected Value (EV) = {q['ev']}**
+- Risk Profile = {"Stable ✅" if q['is_stable'] else "High Risk ⚠️"}
 
-Your job:
-1. Read the ORIGINAL QUESTION and the BUILDER's analysis below.
-2. Verify the answer is 100% correct. If the builder made ANY error, fix it.
-3. Give a final, clean, definitive answer that directly addresses the original question.
+YOUR JOB: Explain these results clearly. Do NOT recalculate them. Do NOT second-guess them.
+Explain what the RR ratio means, what the break-even win rate means for this trader,
+and whether this is a good or bad setup with reasoning.
 
-## STRICT RULES:
-- If the builder's math is wrong, recalculate and give the correct answer.
-- If the builder was vague, be specific.
-- If the builder was too long, summarize to the essential point.
-- Always end with one clear **Final Answer:** in bold.
-- No fluff. No "the builder said...". Just the verified truth.
-- Maximum 200 words unless the question genuinely requires more detail.
+IMPORTANT: RR ratio is ALWAYS expressed as 1:X (Risk:Reward).
+{q['rr_string']} means the trader risks 1 unit to make {q['rr_ratio']} units.
+NEVER write it as {q['rr_ratio']}:1.
+"""
+        return base + math_facts
 
-## TRADING CONVENTION CHECK:
-- RR ratio is ALWAYS 1:X format. If builder wrote it as X:1, correct it to 1:X.
-- risk $1 make $2 = 1:2 RR. If builder said 2:1, override it with 1:2.
-- Break-even win rate = Risk / (Risk + Reward) × 100%. Verify this if present.
+    return base + """
+## FOR GENERAL QUESTIONS:
+- Answer directly and completely.
+- Show full working for any math.
+- Cite reasoning for factual claims.
+- Be the best expert in the room.
 """
 
 
-# -------------------------
-# Main Endpoint
-# -------------------------
+# AUDITOR: Second debater — verifies, challenges, delivers final verdict
+def build_prompt_auditor(mode: str, quant: dict | None) -> str:
+    base = """You are NUROX Auditor — the second AI in a two-AI debate system. You are the final authority.
+
+## YOUR ROLE IN THE DEBATE:
+- You receive the original question AND the Builder's full analysis.
+- Your job: verify, challenge, correct if needed, then deliver the definitive final answer.
+- You are the last word. What you say is what NUROX outputs as truth.
+
+## ABSOLUTE RULES:
+1. Read the Builder's analysis carefully.
+2. If the Builder is correct → confirm and summarize cleanly.
+3. If the Builder made ANY error → correct it explicitly and explain why.
+4. If the Builder was too vague → add precision.
+5. If the Builder was too long → distill to the core truth.
+6. Always end with a clear **Final Answer:** section in bold.
+7. Be authoritative but fair. No "the builder said..." — just deliver truth.
+8. No fluff. No sycophancy. Pure signal.
+"""
+
+    if mode == "quant" and quant:
+        q = quant
+        math_facts = f"""
+## ⚠️ GROUND TRUTH (Python-verified — these are correct, non-negotiable):
+- RR Ratio         = {q['rr_string']} ← this is correct, DO NOT change it
+- Break-even Rate  = {q['breakeven_pct']}%
+- Expected Value   = {q['ev']}
+- Risk Profile     = {"Stable" if q['is_stable'] else "High Risk"}
+
+If the Builder stated different numbers → they are WRONG. Override with the above.
+If the Builder used X:1 format for RR → correct it to {q['rr_string']}.
+
+YOUR FINAL ANSWER must include:
+1. Confirmed correct values (from ground truth above)
+2. What this means practically for the trader
+3. Clear recommendation: is this a good setup or not, and why
+"""
+        return base + math_facts
+
+    return base + """
+## FOR GENERAL QUESTIONS:
+- Verify the Builder's reasoning and facts.
+- Correct any errors with explanation.
+- Deliver one clean, definitive Final Answer.
+- Keep it under 150 words unless complexity genuinely demands more.
+"""
+
+
+# ─────────────────────────────────────────
+# Main Debate Endpoint
+# ─────────────────────────────────────────
 @app.post("/debate", response_model=DebateResponse)
 async def debate(
     req: DebateRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    limiter = UsageLimiter(db)
+    limiter    = UsageLimiter(db)
     usage_info = limiter.check_and_consume(current_user)
 
     question = req.question.strip()
-
     if not question:
-        raise HTTPException(status_code=400, detail="Question empty.")
+        raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
-    mode = detect_mode(question)
+    mode       = detect_mode(question)
     transcript = []
 
-    # Builder — temperature 0.0 for maximum accuracy (no creativity on facts)
-    builder = await call_llm(
-        GROQ_API_KEY_AI1,
-        PROMPT_BUILDER,
-        [{"role": "user", "content": question}],
-        0.0,  # Zero temperature = most deterministic, accurate output
-    )
-
-    transcript.append(DebateMessage(role="🧠 Builder", content=builder))
-
-    deterministic = simulation_block = simulation_data = risk_alerts = None
-    authority = "LLM"
-    confidence = "High"  # Default High — auditor verifies everything
+    # ── Step 1: Run deterministic engine FIRST (Python math, never LLM)
+    quant           = None
+    deterministic   = None
+    simulation_block= None
+    simulation_data = None
+    risk_alerts     = None
+    authority       = "LLM"
+    confidence      = "High"
 
     if mode == "quant":
-        p, ev, risk, reward = deterministic_engine(question)
-
-        if p is not None:
-            rr_ratio = reward / risk if risk > 0 else 0
-
+        quant = deterministic_engine(question)
+        if quant:
             deterministic = (
-                f"🎯 **Break-even Win Rate** = {p*100:.2f}% | "
-                f"**Expected Value (EV)** = {ev:.4f} | "
-                f"**RR Ratio** = 1:{rr_ratio:.2f}"
+                f"**RR Ratio** = {quant['rr_string']} | "
+                f"**Break-even Win Rate** = {quant['breakeven_pct']}% | "
+                f"**Expected Value (EV)** = {quant['ev']}"
             )
-
-            # Monte Carlo uses ACTUAL risk/reward from the question — dynamic chart
-            equity_curve   = monte_carlo_equity(p, reward=reward, risk=risk)
-            simulation_data  = equity_curve
-            simulation_block = (
-                f"📊 **Monte Carlo Simulation** — {len(equity_curve)} trades "
-                f"at 1:{rr_ratio:.2f} RR with {p*100:.2f}% break-even win rate."
+            equity_curve    = monte_carlo_equity(quant)
+            simulation_data = equity_curve
+            simulation_block= (
+                f"**Monte Carlo** — {len(equity_curve)} trades at "
+                f"{quant['rr_string']} RR | Break-even: {quant['breakeven_pct']}%"
             )
-
             risk_alerts = (
-                "🟢 **Stable Risk Profile**"
-                if p > 0.4
+                "🟢 **Stable Risk Profile**" if quant["is_stable"]
                 else "🔴 **High Risk Profile**"
             )
+            authority   = "Deterministic + LLM"
 
-            authority = "Deterministic + LLM"
+    # ── Step 2: Builder analyses (with verified math pre-injected)
+    builder_prompt = build_prompt_builder(mode, quant)
+    builder = await call_llm(
+        GROQ_API_KEY_AI1,
+        builder_prompt,
+        [{"role": "user", "content": question}],
+        temperature=0.0,
+    )
+    transcript.append(DebateMessage(role="🧠 Builder", content=builder))
 
-    # Auditor — sees BOTH the original question AND the builder's answer
-    # This way it can fact-check and correct any mistakes
-    auditor_input = (
+    # ── Step 3: Auditor verifies (also gets verified math)
+    auditor_prompt = build_prompt_auditor(mode, quant)
+    auditor_input  = (
         f"## Original Question:\n{question}\n\n"
         f"## Builder's Analysis:\n{builder}"
     )
-
     final_answer = await call_llm(
         GROQ_API_KEY_AI2,
-        PROMPT_AUDITOR,
+        auditor_prompt,
         [{"role": "user", "content": auditor_input}],
-        0.0,  # Zero temperature = no hallucination in verification
+        temperature=0.0,
     )
 
-    db.add(
-        DebateHistory(
-            user_id=current_user.id,
-            question=question,
-            final_answer=final_answer,
-            mode=mode,
-        )
-    )
-
+    # ── Step 4: Save to history
+    db.add(DebateHistory(
+        user_id=current_user.id,
+        question=question,
+        final_answer=final_answer,
+        mode=mode,
+    ))
     db.commit()
 
-    logger.info(f"Debate executed | User: {current_user.id} | Mode: {mode}")
+    logger.info(f"Debate | User: {current_user.id} | Mode: {mode} | Q: {question[:60]}")
 
     return DebateResponse(
         mode=mode,
@@ -343,9 +381,9 @@ async def debate(
     )
 
 
-# -------------------------
+# ─────────────────────────────────────────
 # History
-# -------------------------
+# ─────────────────────────────────────────
 @app.get("/history")
 def get_history(
     current_user: User = Depends(get_current_user),
@@ -359,9 +397,9 @@ def get_history(
     )
 
 
-# -------------------------
+# ─────────────────────────────────────────
 # Usage
-# -------------------------
+# ─────────────────────────────────────────
 @app.get("/usage")
 def get_usage(
     current_user: User = Depends(get_current_user),
@@ -369,34 +407,31 @@ def get_usage(
 ):
     from database.models import UsageTracking, PLAN_LIMITS
 
-    tracking = db.query(UsageTracking).filter_by(
-        user_id=current_user.id
-    ).first()
-
-    limits = PLAN_LIMITS.get(current_user.plan or "free", {})
+    tracking = db.query(UsageTracking).filter_by(user_id=current_user.id).first()
+    limits   = PLAN_LIMITS.get(current_user.plan or "free", {})
 
     if not tracking:
         return {
-            "plan": current_user.plan,
-            "debates_today": 0,
-            "debates_this_month": 0,
-            "daily_limit": limits.get("daily_debates"),
-            "monthly_limit": limits.get("monthly_debates"),
+            "plan":              current_user.plan,
+            "debates_today":     0,
+            "debates_this_month":0,
+            "daily_limit":       limits.get("daily_debates"),
+            "monthly_limit":     limits.get("monthly_debates"),
         }
 
     return {
-        "plan": current_user.plan,
-        "debates_today": tracking.debates_today,
-        "daily_limit": limits.get("daily_debates"),
+        "plan":               current_user.plan,
+        "debates_today":      tracking.debates_today,
+        "daily_limit":        limits.get("daily_debates"),
         "debates_this_month": tracking.debates_this_month,
-        "monthly_limit": limits.get("monthly_debates"),
-        "total_debates": tracking.total_debates,
+        "monthly_limit":      limits.get("monthly_debates"),
+        "total_debates":      tracking.total_debates,
     }
 
 
-# -------------------------
-# Health Check
-# -------------------------
+# ─────────────────────────────────────────
+# Health
+# ─────────────────────────────────────────
 @app.get("/health")
 async def health():
     return {"status": "NUROX V6.3 Running ✅"}
