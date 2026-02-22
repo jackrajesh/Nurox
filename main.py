@@ -136,32 +136,45 @@ def deterministic_engine(question: str):
     nums = list(map(float, re.findall(r"\d+\.?\d*", question)))
 
     if len(nums) < 2:
-        return None, None
+        return None, None, None, None
 
-    risk = nums[0]
-    reward = nums[1]
+    risk       = nums[0]
+    reward     = nums[1]
     transaction = nums[2] if len(nums) >= 3 else 0
-    slippage = nums[3] if len(nums) >= 4 else 0
+    slippage   = nums[3] if len(nums) >= 4 else 0
 
-    net_win = reward - transaction - slippage
+    net_win  = reward - transaction - slippage
     net_loss = -risk - transaction
-    denom = net_win - net_loss
+    denom    = net_win - net_loss
 
     if denom == 0:
-        return None, None
+        return None, None, None, None
 
-    p = -net_loss / denom
+    p  = -net_loss / denom
     ev = (p * net_win) + ((1 - p) * net_loss)
 
-    return p, ev
+    return p, ev, risk, reward
 
 
-def monte_carlo_equity(win_prob, reward_ratio=0.02, risk_ratio=0.01, trades=200):
+def monte_carlo_equity(win_prob, reward, risk, trades=200):
+    """
+    Simulate equity curve using ACTUAL risk/reward from the question.
+    Normalise to percentage of capital per trade (assume 1% risk per trade baseline,
+    scaled by the actual RR ratio so the chart reflects the real setup).
+    """
     equity_curve = []
-    capital = 1.0
+    capital      = 1.0
+
+    # Normalise: treat risk as 1 unit, reward scales accordingly
+    rr           = reward / risk if risk > 0 else 1.0
+    risk_pct     = 0.01                  # risk 1% of capital per trade
+    reward_pct   = risk_pct * rr         # reward scales with actual RR
 
     for _ in range(trades):
-        capital *= (1 + reward_ratio) if np.random.rand() < win_prob else (1 - risk_ratio)
+        if np.random.rand() < win_prob:
+            capital *= (1 + reward_pct)
+        else:
+            capital *= (1 - risk_pct)
         equity_curve.append(round(capital, 4))
 
     return equity_curve
@@ -184,10 +197,14 @@ PROMPT_BUILDER = """You are NUROX — a world-class all-rounder intelligence sys
 - Double-check every calculation before responding.
 
 ### TRADING & FINANCE (when relevant)
-- Risk:Reward ratio = always expressed as 1:X (e.g., risk $1 to make $3 = 1:3 RR)
+- Risk:Reward (RR) ratio is ALWAYS written as 1:X — Risk is ALWAYS 1, Reward is X.
+  - Formula: X = Reward / Risk. Then express as 1:X.
+  - risk $1, make $2 → 2/1 = 2 → RR = 1:2 ✅ NEVER write this as 2:1 ❌
+  - risk $1, make $3 → 3/1 = 3 → RR = 1:3 ✅
+  - risk $50, make $150 → 150/50 = 3 → RR = 1:3 ✅
 - Break-even win rate = Risk / (Risk + Reward) × 100%
 - EV = (Win% × Reward) − (Loss% × Risk)
-- Be precise with pip values, lot sizes, and position sizing when given.
+- NEVER express RR as X:1 unless the user explicitly asks for reward-to-risk ratio.
 
 ### FORMAT
 - Use **bold** ONLY for the final answer or the most critical insight.
@@ -215,6 +232,11 @@ Your job:
 - Always end with one clear **Final Answer:** in bold.
 - No fluff. No "the builder said...". Just the verified truth.
 - Maximum 200 words unless the question genuinely requires more detail.
+
+## TRADING CONVENTION CHECK:
+- RR ratio is ALWAYS 1:X format. If builder wrote it as X:1, correct it to 1:X.
+- risk $1 make $2 = 1:2 RR. If builder said 2:1, override it with 1:2.
+- Break-even win rate = Risk / (Risk + Reward) × 100%. Verify this if present.
 """
 
 
@@ -253,18 +275,23 @@ async def debate(
     confidence = "High"  # Default High — auditor verifies everything
 
     if mode == "quant":
-        p, ev = deterministic_engine(question)
+        p, ev, risk, reward = deterministic_engine(question)
 
         if p is not None:
+            rr_ratio = reward / risk if risk > 0 else 0
+
             deterministic = (
                 f"🎯 **Break-even Win Rate** = {p*100:.2f}% | "
-                f"**Expected Value (EV)** = {ev:.4f}"
+                f"**Expected Value (EV)** = {ev:.4f} | "
+                f"**RR Ratio** = 1:{rr_ratio:.2f}"
             )
 
-            equity_curve = monte_carlo_equity(p)
-            simulation_data = equity_curve
+            # Monte Carlo uses ACTUAL risk/reward from the question — dynamic chart
+            equity_curve   = monte_carlo_equity(p, reward=reward, risk=risk)
+            simulation_data  = equity_curve
             simulation_block = (
-                f"📊 **Monte Carlo Simulation** — {len(equity_curve)} trades simulated."
+                f"📊 **Monte Carlo Simulation** — {len(equity_curve)} trades "
+                f"at 1:{rr_ratio:.2f} RR with {p*100:.2f}% break-even win rate."
             )
 
             risk_alerts = (
