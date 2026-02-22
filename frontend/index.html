@@ -1,228 +1,1127 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>NUROX V6.3 Intelligence Platform</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NUROX — Intelligence Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <style>
-*{box-sizing:border-box;}
-body{
-    margin:0;
-    font-family:'Inter',sans-serif;
-    background:linear-gradient(135deg,#0f172a,#020617);
-    color:#e2e8f0;
-    min-height:100vh;
+/* ─── TOKENS ─── */
+:root {
+  --bg:          #020d16;
+  --bg2:         #061522;
+  --surface:     #0a1d2e;
+  --surface2:    #0e2438;
+  --border:      #112d44;
+  --border2:     #1a3d58;
+
+  /* green — used ONLY for accents, never on body text */
+  --g400:  #00e676;
+  --g500:  #00c853;
+  --g-dim: rgba(0,230,118,0.08);
+  --g-glow:rgba(0,230,118,0.14);
+
+  --blue:  #38bdf8;
+  --b-dim: rgba(56,189,248,0.08);
+  --amber: #fbbf24;
+  --a-dim: rgba(251,191,36,0.08);
+  --red:   #f87171;
+  --r-dim: rgba(248,113,113,0.08);
+
+  /* typography — all body text uses these */
+  --t1:    #eaf4ff;   /* headings / primary */
+  --t2:    #8fb8d4;   /* body / secondary  */
+  --t3:    #3d6b8a;   /* muted             */
+
+  --mono: 'DM Mono', monospace;
+  --sans: 'Outfit', sans-serif;
+  --radius: 16px;
 }
-.container{
-    max-width:1100px;
-    margin:auto;
-    padding:60px 20px;
+
+/* ─── RESET ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--t2);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
 }
-h1{
-    text-align:center;
-    font-size:40px;
-    font-weight:800;
-    margin-bottom:6px;
+
+/* ─── BACKGROUND ─── */
+.bg-layer {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
 }
-.subtitle{
-    text-align:center;
-    color:#94a3b8;
-    margin-bottom:30px;
+.bg-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(0,230,118,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,230,118,.025) 1px, transparent 1px);
+  background-size: 56px 56px;
+  animation: gridPan 35s linear infinite;
 }
-.auth-panel{
-    background:rgba(30,41,59,0.9);
-    padding:30px;
-    border-radius:20px;
-    max-width:420px;
-    margin:0 auto 40px;
+.bg-orb {
+  position: absolute; border-radius: 50%; filter: blur(110px);
 }
-.auth-panel h2{
-    margin:0 0 20px;
-    font-size:20px;
+.bg-orb-a {
+  width: 600px; height: 600px; top: -200px; left: -200px;
+  background: radial-gradient(circle, rgba(0,200,83,.06), transparent 70%);
+  animation: orbA 20s ease-in-out infinite alternate;
 }
-.auth-panel input{
-    width:100%;
-    padding:12px 16px;
-    border-radius:10px;
-    border:1px solid #334155;
-    background:#0f172a;
-    color:white;
-    font-size:15px;
-    margin-bottom:12px;
-    outline:none;
+.bg-orb-b {
+  width: 500px; height: 500px; bottom: -150px; right: -150px;
+  background: radial-gradient(circle, rgba(56,189,248,.055), transparent 70%);
+  animation: orbB 25s ease-in-out infinite alternate;
 }
-.auth-panel input:focus{
-    border-color:#22c55e;
+@keyframes gridPan { to { transform: translateY(56px); } }
+@keyframes orbA { to { transform: translate(60px, 60px) scale(1.15); } }
+@keyframes orbB { to { transform: translate(-50px, -40px) scale(1.2); } }
+
+/* ─── UTILITIES ─── */
+.hidden { display: none !important; }
+.page   { position: relative; z-index: 1; }
+
+/* Scroll bars */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+/* ─────────────────────────────────────────
+   AUTH PAGE
+───────────────────────────────────────── */
+#authPage {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 40px 16px;
 }
-.auth-row{
-    display:flex;
-    gap:10px;
+
+/* Logo */
+.auth-logo { text-align: center; margin-bottom: 44px; animation: fadeDown .7s ease both; }
+.wordmark {
+  font-size: clamp(48px, 10vw, 72px);
+  font-weight: 900;
+  letter-spacing: -3px;
+  line-height: 1;
+  display: inline-block;
 }
-.btn{
-    padding:12px 24px;
-    border:none;
-    border-radius:12px;
-    font-weight:700;
-    cursor:pointer;
-    font-size:14px;
-    transition:0.2s;
+.wordmark .nuro { color: var(--t1); }
+.wordmark .x    { color: var(--g400); }
+.auth-tagline {
+  margin-top: 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--t3);
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
 }
-.btn-green{
-    background:linear-gradient(135deg,#22c55e,#16a34a);
-    color:white;
-    flex:1;
+
+/* Card */
+.auth-card {
+  width: 100%; max-width: 420px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: clamp(24px, 5vw, 40px);
+  position: relative; overflow: hidden;
+  animation: fadeUp .7s ease .15s both;
+  box-shadow: 0 40px 80px rgba(0,0,0,.55);
 }
-.btn-blue{
-    background:linear-gradient(135deg,#3b82f6,#1d4ed8);
-    color:white;
-    flex:1;
+.auth-card::before {
+  content: '';
+  position: absolute; top: 0; left: 15%; right: 15%; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--g400), transparent);
+  opacity: .45;
 }
-.btn:hover{
-    opacity:0.85;
-    transform:scale(1.02);
+
+/* Tabs */
+.tabs {
+  display: flex;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 4px; gap: 4px;
+  margin-bottom: 28px;
 }
-.hidden{
-    display:none;
+.tab {
+  flex: 1; padding: 10px 0;
+  text-align: center;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 13px; font-weight: 600;
+  color: var(--t3);
+  transition: all .22s;
+  user-select: none;
 }
-#errorBox{
-    margin-top:12px;
-    font-size:14px;
+.tab.active {
+  background: var(--surface2);
+  color: var(--t1);
+  border: 1px solid var(--border2);
+}
+
+/* Fields */
+.field { margin-bottom: 14px; }
+.flabel {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px; color: var(--t3);
+  letter-spacing: 1.5px; text-transform: uppercase;
+  margin-bottom: 7px;
+}
+input[type=text], input[type=email], input[type=password] {
+  width: 100%; padding: 12px 15px;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: var(--bg2);
+  color: var(--t1);
+  font-family: var(--sans); font-size: 14px;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+input::placeholder { color: var(--t3); }
+input:focus {
+  border-color: var(--g500);
+  box-shadow: 0 0 0 3px var(--g-dim);
+}
+
+/* Buttons */
+.btn-primary {
+  width: 100%; padding: 13px; border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--g500), var(--g400));
+  color: #020d08;
+  font-family: var(--sans); font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: all .22s;
+  margin-top: 6px; letter-spacing: .3px;
+}
+.btn-primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.btn-primary:active { transform: scale(.98); }
+
+/* Alert */
+.alert {
+  padding: 11px 14px; border-radius: 10px;
+  font-family: var(--mono); font-size: 12px;
+  margin-top: 14px; display: none; line-height: 1.5;
+}
+.alert.show { display: block; }
+.alert.err  { background: var(--r-dim); border: 1px solid rgba(248,113,113,.25); color: #fca5a5; }
+.alert.ok   { background: var(--g-dim); border: 1px solid rgba(0,230,118,.22);   color: #6ee7b7; }
+
+/* ─────────────────────────────────────────
+   APP SHELL
+───────────────────────────────────────── */
+#appPage { min-height: 100vh; display: flex; flex-direction: column; }
+
+/* ── Topbar ── */
+.topbar {
+  position: sticky; top: 0; z-index: 200;
+  height: 62px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 clamp(16px, 4vw, 32px);
+  background: rgba(2,13,22,.94);
+  backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+}
+.topbar-logo { font-size: clamp(20px, 4vw, 26px); font-weight: 900; letter-spacing: -1px; line-height: 1; flex-shrink: 0; }
+.topbar-logo .nuro { color: var(--t1); }
+.topbar-logo .x    { color: var(--g400); }
+
+.topbar-right {
+  display: flex; align-items: center;
+  gap: clamp(8px, 2vw, 16px);
+  flex-shrink: 0;
+}
+
+/* User pill */
+.user-pill {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 40px;
+  padding: 5px 12px 5px 5px;
+  min-width: 0;
+}
+.u-avatar {
+  width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--g500), var(--g400));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 800; color: #020d08;
+}
+.u-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.u-name {
+  font-size: 13px; font-weight: 700; color: var(--t1);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: clamp(60px, 12vw, 120px);
+  line-height: 1.2;
+}
+
+/* Plan badge */
+.plan-badge {
+  font-family: var(--mono); font-size: 9px; font-weight: 600;
+  letter-spacing: 1.2px; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 20px; line-height: 1.4;
+  white-space: nowrap;
+}
+.plan-free    { background: var(--b-dim); border: 1px solid rgba(56,189,248,.2);  color: #7dd3fc; }
+.plan-pro     { background: var(--g-dim); border: 1px solid rgba(0,230,118,.22);  color: #6ee7b7; }
+.plan-elite   { background: var(--a-dim); border: 1px solid rgba(251,191,36,.25); color: #fde68a; }
+.plan-premium { background: var(--a-dim); border: 1px solid rgba(251,191,36,.25); color: #fde68a; }
+
+.btn-logout {
+  padding: 7px 14px; background: transparent;
+  border: 1px solid var(--border2); border-radius: 9px;
+  color: var(--t3); font-family: var(--sans); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all .2s; white-space: nowrap;
+}
+.btn-logout:hover { border-color: var(--red); color: var(--red); }
+
+/* ── Nav ── */
+.app-nav {
+  display: flex; gap: 0;
+  padding: 0 clamp(16px, 4vw, 32px);
+  border-bottom: 1px solid var(--border);
+  background: rgba(6,21,34,.7);
+  overflow-x: auto;
+}
+.app-nav::-webkit-scrollbar { height: 0; }
+.nav-tab {
+  padding: 13px 18px;
+  font-size: 13px; font-weight: 600; color: var(--t3);
+  cursor: pointer; border-bottom: 2px solid transparent;
+  transition: all .2s; white-space: nowrap; user-select: none;
+}
+.nav-tab:hover  { color: var(--t2); }
+.nav-tab.active { color: var(--t1); border-bottom-color: var(--g400); }
+
+/* ── Main content ── */
+.app-body {
+  flex: 1;
+  padding: clamp(20px, 4vw, 36px) clamp(16px, 4vw, 32px) 60px;
+  max-width: 1000px; margin: 0 auto; width: 100%;
+}
+
+/* ─────────────────────────────────────────
+   QUERY VIEW
+───────────────────────────────────────── */
+#queryView { animation: fadeUp .4s ease both; }
+
+.qcard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: clamp(20px, 4vw, 28px);
+  margin-bottom: 20px;
+  position: relative; overflow: hidden;
+}
+.qcard::before {
+  content: '';
+  position: absolute; top: 0; left: 20%; right: 20%; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--g500), transparent);
+  opacity: .35;
+}
+
+.stag {
+  font-family: var(--mono);
+  font-size: 9px; color: var(--t3);
+  letter-spacing: 3px; text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+textarea {
+  width: 100%; min-height: 100px;
+  padding: 14px 16px; border-radius: 12px;
+  background: var(--bg2); color: var(--t1);
+  border: 1px solid var(--border);
+  font-family: var(--sans); font-size: 14px;
+  line-height: 1.65; resize: vertical; outline: none;
+  transition: border-color .2s, box-shadow .2s;
+}
+textarea::placeholder { color: var(--t3); }
+textarea:focus { border-color: var(--g500); box-shadow: 0 0 0 3px var(--g-dim); }
+
+.qfooter {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 14px; flex-wrap: wrap; gap: 10px;
+}
+
+/* Usage mini */
+.usage-row {
+  display: flex; align-items: center; gap: 10px;
+  font-family: var(--mono); font-size: 11px; color: var(--t3);
+}
+.ubar { width: 80px; height: 4px; background: var(--surface2); border-radius: 10px; overflow: hidden; }
+.ubar-fill {
+  height: 100%; border-radius: 10px;
+  background: linear-gradient(90deg, var(--g500), var(--g400));
+  transition: width .6s ease;
+}
+
+.btn-analyze {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, var(--g500), var(--g400));
+  color: #020d08; border: none; border-radius: 12px;
+  font-family: var(--sans); font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: all .22s;
+}
+.btn-analyze:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.btn-analyze:active { transform: scale(.98); }
+.btn-analyze:disabled { opacity: .4; cursor: not-allowed; transform: none !important; filter: none !important; }
+
+/* ─── Result cards ─── */
+#resultArea { display: flex; flex-direction: column; gap: 14px; }
+
+.rcard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  animation: fadeUp .45s ease both;
+}
+
+.rcard-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+  gap: 10px; flex-wrap: wrap;
+}
+.rcard-label {
+  font-family: var(--mono); font-size: 9px;
+  color: var(--t3); letter-spacing: 2.5px; text-transform: uppercase;
+}
+.rcard-body {
+  padding: 18px 20px;
+  font-size: 14px; line-height: 1.72; color: var(--t2);
+}
+/* Markdown overrides — force readable colors */
+.rcard-body strong { color: var(--t1); font-weight: 700; }
+.rcard-body em     { color: var(--blue); font-style: italic; }
+.rcard-body h1, .rcard-body h2, .rcard-body h3 { color: var(--t1); margin: 12px 0 6px; font-size: 15px; }
+.rcard-body ul, .rcard-body ol { padding-left: 20px; }
+.rcard-body li { margin-bottom: 5px; }
+.rcard-body code {
+  background: var(--bg2); color: var(--blue);
+  padding: 2px 7px; border-radius: 5px;
+  font-family: var(--mono); font-size: 12px;
+}
+.rcard-body p { margin-bottom: 8px; }
+.rcard-body p:last-child { margin-bottom: 0; }
+
+/* Pills */
+.pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 20px;
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  letter-spacing: .8px; text-transform: uppercase;
+}
+.pill-green  { background: var(--g-dim);  border: 1px solid rgba(0,230,118,.2);  color: #6ee7b7; }
+.pill-blue   { background: var(--b-dim);  border: 1px solid rgba(56,189,248,.2); color: #7dd3fc; }
+.pill-amber  { background: var(--a-dim);  border: 1px solid rgba(251,191,36,.2); color: #fde68a; }
+.pill-red    { background: var(--r-dim);  border: 1px solid rgba(248,113,113,.2);color: #fca5a5; }
+
+/* Meta row */
+.meta-row {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+}
+.meta-item {
+  display: flex; flex-direction: column; gap: 3px;
+}
+.meta-key  { font-family: var(--mono); font-size: 9px; color: var(--t3); letter-spacing: 1.5px; text-transform: uppercase; }
+.meta-val  { font-size: 13px; font-weight: 600; color: var(--t1); }
+
+/* Deterministic box */
+.det-box {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 11px; padding: 14px 16px;
+  font-family: var(--mono); font-size: 13px; color: var(--t1);
+  line-height: 1.7;
+}
+.det-box strong { color: var(--t1); }
+
+/* Chart */
+.chart-wrap { padding: 20px; }
+canvas#equityChart { max-height: 240px; }
+
+/* Loading state */
+.loading-state {
+  display: flex; align-items: center; gap: 12px;
+  padding: 32px 20px;
+  font-family: var(--mono); font-size: 12px; color: var(--t3);
+}
+.ldots span {
+  display: inline-block;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--g400);
+  animation: ldot 1.2s infinite;
+  margin: 0 2px;
+}
+.ldots span:nth-child(2) { animation-delay: .2s; }
+.ldots span:nth-child(3) { animation-delay: .4s; }
+
+/* ─────────────────────────────────────────
+   USAGE VIEW
+───────────────────────────────────────── */
+#usageView { animation: fadeUp .4s ease both; }
+
+.usage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px; margin-bottom: 20px;
+}
+.ustat {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px;
+  transition: border-color .2s;
+}
+.ustat:hover { border-color: var(--border2); }
+.ustat-label { font-family: var(--mono); font-size: 9px; color: var(--t3); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; }
+.ustat-val   { font-size: clamp(28px, 5vw, 36px); font-weight: 800; color: var(--t1); line-height: 1; margin-bottom: 4px; font-family: var(--mono); }
+.ustat-sub   { font-size: 12px; color: var(--t3); }
+.ustat-bar   { margin-top: 12px; height: 5px; background: var(--surface2); border-radius: 10px; overflow: hidden; }
+.ustat-bar-fill {
+  height: 100%; border-radius: 10px;
+  background: linear-gradient(90deg, var(--g500), var(--g400));
+  transition: width .7s ease;
+}
+
+/* ─────────────────────────────────────────
+   HISTORY VIEW
+───────────────────────────────────────── */
+#historyView { animation: fadeUp .4s ease both; }
+
+.hist-list { display: flex; flex-direction: column; gap: 12px; }
+.hist-item {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px 20px;
+  cursor: pointer; transition: border-color .2s;
+}
+.hist-item:hover { border-color: var(--border2); }
+.hist-q  { font-size: 14px; font-weight: 600; color: var(--t1); margin-bottom: 8px; }
+.hist-meta { display: flex; flex-wrap: wrap; gap: 8px; }
+.hist-ans {
+  margin-top: 12px; font-size: 13px; line-height: 1.65; color: var(--t2);
+  display: none;
+}
+.hist-ans.open { display: block; }
+
+/* ─────────────────────────────────────────
+   ANIMATIONS
+───────────────────────────────────────── */
+@keyframes fadeUp   { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:none; } }
+@keyframes fadeDown { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:none; } }
+@keyframes ldot     { 0%,80%,100% { transform:translateY(0); } 40% { transform:translateY(-6px); } }
+
+/* ─────────────────────────────────────────
+   RESPONSIVE
+───────────────────────────────────────── */
+@media (max-width: 600px) {
+  .u-info { display: none; } /* show avatar only */
+  .user-pill { padding: 5px; border-radius: 50%; }
+  .nav-tab { padding: 12px 12px; font-size: 12px; }
+  .qfooter { flex-direction: column; align-items: stretch; }
+  .btn-analyze { justify-content: center; }
+  .meta-row { gap: 14px; }
+}
+@media (max-width: 400px) {
+  .auth-card { border-radius: 18px; }
+  .wordmark  { letter-spacing: -2px; }
 }
 </style>
 </head>
-
 <body>
-<div class="container">
 
-<h1>🚀 NUROX V6.3</h1>
-<div class="subtitle">Intelligence Debate & Quant Platform</div>
+<!-- BG -->
+<div class="bg-layer" aria-hidden="true">
+  <div class="bg-grid"></div>
+  <div class="bg-orb bg-orb-a"></div>
+  <div class="bg-orb bg-orb-b"></div>
+</div>
 
-<div id="authPanel" class="auth-panel">
-    <h2 id="authTitle">Login to NUROX</h2>
+<!-- ═══════════════ AUTH PAGE ═══════════════ -->
+<div id="authPage" class="page">
+  <div class="auth-logo">
+    <div class="wordmark"><span class="nuro">NURO</span><span class="x">X</span></div>
+    <div class="auth-tagline">Debate &amp; Quant Intelligence · v6.3</div>
+  </div>
 
-    <input id="authUsername" type="text" placeholder="Username" />
-    <input id="authEmail" type="email" placeholder="Email (register only)" class="hidden" />
-    <input id="authPassword" type="password" placeholder="Password" />
-
-    <div class="auth-row" style="margin-top:4px;">
-        <button class="btn btn-green" onclick="handleAuth()">Login</button>
-        <button class="btn btn-blue" onclick="toggleRegister()">Register</button>
+  <div class="auth-card">
+    <div class="tabs">
+      <div class="tab active" id="tabLogin"    onclick="switchTab('login')">Sign In</div>
+      <div class="tab"        id="tabRegister" onclick="switchTab('register')">Create Account</div>
     </div>
 
-    <div id="errorBox"></div>
+    <!-- Login -->
+    <div id="formLogin">
+      <div class="field">
+        <label class="flabel">Username</label>
+        <input id="lUser" type="text" placeholder="Enter your username" autocomplete="username"/>
+      </div>
+      <div class="field">
+        <label class="flabel">Password</label>
+        <input id="lPass" type="password" placeholder="Enter your password" autocomplete="current-password"/>
+      </div>
+      <button class="btn-primary" onclick="doLogin()">Sign In →</button>
+    </div>
+
+    <!-- Register -->
+    <div id="formRegister" class="hidden">
+      <div class="field">
+        <label class="flabel">Username</label>
+        <input id="rUser" type="text" placeholder="Choose a username" autocomplete="username"/>
+      </div>
+      <div class="field">
+        <label class="flabel">Email</label>
+        <input id="rEmail" type="email" placeholder="your@email.com" autocomplete="email"/>
+      </div>
+      <div class="field">
+        <label class="flabel">Password</label>
+        <input id="rPass" type="password" placeholder="Create a password" autocomplete="new-password"/>
+      </div>
+      <button class="btn-primary" onclick="doRegister()">Create Account →</button>
+    </div>
+
+    <div id="authAlert" class="alert"></div>
+  </div>
 </div>
 
-</div>
+<!-- ═══════════════ APP PAGE ═══════════════ -->
+<div id="appPage" class="page hidden">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-logo"><span class="nuro">NURO</span><span class="x">X</span></div>
+    <div class="topbar-right">
+      <div class="user-pill">
+        <div class="u-avatar" id="uAvatar">?</div>
+        <div class="u-info">
+          <div class="u-name" id="uName">—</div>
+          <div class="plan-badge plan-free" id="uPlan">Free</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+
+  <!-- Nav -->
+  <div class="app-nav">
+    <div class="nav-tab active" onclick="showView('queryView', this)">⚡ Analyze</div>
+    <div class="nav-tab"        onclick="showView('usageView',  this); loadUsage();">📊 Usage</div>
+    <div class="nav-tab"        onclick="showView('historyView',this); loadHistory();">🕒 History</div>
+  </div>
+
+  <!-- Body -->
+  <div class="app-body">
+
+    <!-- ── QUERY VIEW ── -->
+    <div id="queryView">
+      <div class="qcard">
+        <div class="stag" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>// intelligence query</span>
+          <span class="pill pill-blue" id="liveModePill" style="font-size:9px;transition:all .3s;">🧠 GENERAL</span>
+        </div>
+        <textarea id="queryInput"
+          placeholder="General question → any topic&#10;Quant mode → include: risk, reward, win rate, slippage, transaction, break"
+          oninput="updateLiveMode(this.value)"></textarea>
+        <div class="qfooter">
+          <div class="usage-row" id="usageMini">
+            <div class="ubar"><div class="ubar-fill" id="usageBarFill" style="width:0%"></div></div>
+            <span id="usageMiniTxt">— / — today</span>
+          </div>
+          <button class="btn-analyze" id="analyzeBtn" onclick="runAnalysis()">
+            <span>⚡</span> Analyze
+          </button>
+        </div>
+      </div>
+
+      <div id="resultArea"></div>
+    </div>
+
+    <!-- ── USAGE VIEW ── -->
+    <div id="usageView" class="hidden">
+      <div class="qcard" style="margin-bottom:24px;">
+        <div class="stag">// account usage</div>
+        <div id="usageContent">
+          <div class="loading-state"><div class="ldots"><span></span><span></span><span></span></div>Loading usage...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── HISTORY VIEW ── -->
+    <div id="historyView" class="hidden">
+      <div class="qcard" style="margin-bottom:24px;">
+        <div class="stag">// analysis history</div>
+      </div>
+      <div id="historyContent">
+        <div class="loading-state"><div class="ldots"><span></span><span></span><span></span></div>Loading history...</div>
+      </div>
+    </div>
+
+  </div><!-- /app-body -->
+</div><!-- /appPage -->
 
 <script>
+/* ═══════════════ CONFIG ═══════════════ */
 const API = "https://nurox-eqsd.onrender.com";
-let isRegisterMode = false;
+let token       = localStorage.getItem("nurox_token");
+let currentUser = localStorage.getItem("nurox_user") || "";
+let equityChart = null;
 
-function setError(message, success=false){
-    const box = document.getElementById("errorBox");
-    box.style.color = success ? "#4ade80" : "#f87171";
-    box.textContent = message;
+/* ═══════════════ INIT ═══════════════ */
+window.onload = () => {
+  if (token) showApp();
+};
+
+/* ═══════════════ AUTH ═══════════════ */
+function switchTab(mode) {
+  document.getElementById("tabLogin").classList.toggle("active",    mode==="login");
+  document.getElementById("tabRegister").classList.toggle("active", mode==="register");
+  document.getElementById("formLogin").classList.toggle("hidden",    mode!=="login");
+  document.getElementById("formRegister").classList.toggle("hidden", mode!=="register");
+  showAuthAlert("", "");
 }
 
-function toggleRegister(){
-    isRegisterMode = !isRegisterMode;
-    document.getElementById("authTitle").textContent =
-        isRegisterMode ? "Create Account" : "Login to NUROX";
-
-    document.getElementById("authEmail")
-        .classList.toggle("hidden", !isRegisterMode);
-
-    setError("");
+function showAuthAlert(msg, type) {
+  const el = document.getElementById("authAlert");
+  el.textContent = msg;
+  el.className   = "alert" + (msg ? " show " + type : "");
 }
 
-async function handleAuth(){
-    const username = document.getElementById("authUsername").value.trim();
-    const password = document.getElementById("authPassword").value.trim();
-    const email = document.getElementById("authEmail").value.trim();
+async function doLogin() {
+  const u = document.getElementById("lUser").value.trim();
+  const p = document.getElementById("lPass").value.trim();
+  if (!u || !p) { showAuthAlert("Please fill in all fields.", "err"); return; }
+  showAuthAlert("Authenticating...", "ok");
+  try {
+    const form = new FormData();
+    form.append("username", u); form.append("password", p);
+    const res  = await fetch(`${API}/login`, { method: "POST", body: form });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { showAuthAlert(data.detail || "Login failed.", "err"); return; }
+    token = data.access_token;
+    localStorage.setItem("nurox_token", token);
+    localStorage.setItem("nurox_user",  u);
+    currentUser = u;
+    showAuthAlert("Login successful! Loading...", "ok");
+    setTimeout(showApp, 500);
+  } catch { showAuthAlert("Network error. Server unreachable.", "err"); }
+}
 
-    if(!username || !password){
-        setError("Please fill all required fields.");
-        return;
+async function doRegister() {
+  const u = document.getElementById("rUser").value.trim();
+  const e = document.getElementById("rEmail").value.trim();
+  const p = document.getElementById("rPass").value.trim();
+  if (!u || !e || !p) { showAuthAlert("All fields are required.", "err"); return; }
+  showAuthAlert("Creating account...", "ok");
+  try {
+    const res  = await fetch(`${API}/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: u, email: e, password: p })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = Array.isArray(data.detail)
+        ? data.detail.map(d => d.msg).join(", ")
+        : (data.detail || "Registration failed.");
+      showAuthAlert(msg, "err"); return;
+    }
+    showAuthAlert("Account created! You can now sign in.", "ok");
+    setTimeout(() => switchTab("login"), 1200);
+  } catch { showAuthAlert("Network error.", "err"); }
+}
+
+function showApp() {
+  document.getElementById("authPage").classList.add("hidden");
+  document.getElementById("appPage").classList.remove("hidden");
+  setUserUI();
+  fetchAndSetPlan();
+  fetchUsageMini();
+}
+
+function doLogout() {
+  localStorage.removeItem("nurox_token");
+  localStorage.removeItem("nurox_user");
+  token = null; currentUser = "";
+  document.getElementById("appPage").classList.add("hidden");
+  document.getElementById("authPage").classList.remove("hidden");
+  document.getElementById("resultArea").innerHTML = "";
+  showAuthAlert("", "");
+}
+
+/* ═══════════════ USER UI ═══════════════ */
+function setUserUI() {
+  const name = currentUser || "User";
+  document.getElementById("uName").textContent   = name;
+  document.getElementById("uAvatar").textContent = name[0].toUpperCase();
+}
+
+async function fetchAndSetPlan() {
+  try {
+    const res  = await fetch(`${API}/usage`, { headers: authHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+    const plan = (data.plan || "free").toLowerCase();
+    const badge = document.getElementById("uPlan");
+    badge.textContent = capFirst(plan);
+    badge.className   = "plan-badge plan-" + plan;
+
+    // Update usage mini bar
+    updateUsageMini(data);
+  } catch {}
+}
+
+async function fetchUsageMini() {
+  try {
+    const res  = await fetch(`${API}/usage`, { headers: authHeaders() });
+    if (!res.ok) return;
+    const data = await res.json();
+    updateUsageMini(data);
+  } catch {}
+}
+
+function updateUsageMini(data) {
+  const used  = data.debates_today  || 0;
+  const limit = data.daily_limit;
+  const pct   = limit ? Math.min((used / limit) * 100, 100) : 0;
+  document.getElementById("usageBarFill").style.width = pct + "%";
+  document.getElementById("usageMiniTxt").textContent =
+    limit ? `${used} / ${limit} today` : `${used} today`;
+}
+
+function capFirst(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+function authHeaders() { return { "Authorization": `Bearer ${token}` }; }
+
+/* ═══════════════ VIEW SWITCHING ═══════════════ */
+function showView(id, el) {
+  ["queryView","usageView","historyView"].forEach(v =>
+    document.getElementById(v).classList.toggle("hidden", v !== id)
+  );
+  document.querySelectorAll(".nav-tab").forEach(t => t.classList.remove("active"));
+  if (el) el.classList.add("active");
+}
+
+/* ═══════════════ LIVE MODE DETECTOR ═══════════════
+   Mirrors backend detect_mode() from main.py exactly:
+   keywords = ["risk","reward","win rate","break","transaction","slippage"]
+═══════════════════════════════════════════════════ */
+const QUANT_KEYWORDS = ["risk","reward","win rate","break","transaction","slippage"];
+
+function updateLiveMode(text) {
+  const pill = document.getElementById("liveModePill");
+  if (!pill) return;
+  const lower = text.toLowerCase();
+  const isQuant = QUANT_KEYWORDS.some(k => lower.includes(k));
+  if (isQuant) {
+    pill.textContent  = "📊 QUANT";
+    pill.className    = "pill pill-amber";
+  } else {
+    pill.textContent  = "🧠 GENERAL";
+    pill.className    = "pill pill-blue";
+  }
+}
+
+/* ═══════════════ ANALYSIS ═══════════════ */
+async function runAnalysis() {
+  const q = document.getElementById("queryInput").value.trim();
+  if (!q) return;
+
+  const area = document.getElementById("resultArea");
+  const btn  = document.getElementById("analyzeBtn");
+  btn.disabled = true;
+  area.innerHTML = `<div class="rcard"><div class="loading-state"><div class="ldots"><span></span><span></span><span></span></div>Running intelligence analysis...</div></div>`;
+
+  // Destroy old chart
+  if (equityChart) { equityChart.destroy(); equityChart = null; }
+
+  try {
+    const res = await fetch(`${API}/debate`, {
+      method: "POST",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ question: q })
+    });
+
+    if (res.status === 401) { doLogout(); return; }
+
+    const data = await res.json();
+    if (!res.ok) {
+      area.innerHTML = errCard(parseDetail(data.detail));
+      return;
     }
 
-    try{
+    renderResult(data, area);
+    fetchUsageMini(); // refresh bar
 
-        if(isRegisterMode){
+  } catch (e) {
+    area.innerHTML = errCard("Network error. Server may be starting up — try again in a moment.");
+  } finally {
+    btn.disabled = false;
+  }
+}
 
-            if(!email){
-                setError("Email required for registration.");
-                return;
+/* Safely convert any FastAPI detail shape to a readable string */
+function parseDetail(detail) {
+  if (!detail) return "An error occurred.";
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail.map(d => {
+      if (typeof d === "string") return d;
+      if (d && typeof d === "object") return d.msg || d.message || JSON.stringify(d);
+      return String(d);
+    }).join(" · ");
+  }
+  if (typeof detail === "object") {
+    // e.g. usage limit object: { debates_today: 5, daily_limit: 5 }
+    if (detail.message) return detail.message;
+    if (detail.msg)     return detail.msg;
+    // Check if it looks like a usage limit hit
+    if (detail.daily_limit !== undefined) {
+      return `Daily limit reached (${detail.debates_today ?? "?"}/${detail.daily_limit} debates). Upgrade your plan for more.`;
+    }
+    return "You have reached your usage limit. Please try again later or upgrade your plan.";
+  }
+  return String(detail);
+}
+
+function errCard(msg) {
+  return `<div class="rcard"><div class="rcard-body" style="color:var(--red)">⚠ ${msg}</div></div>`;
+}
+
+function renderResult(data, container) {
+  let html = "";
+
+  /* ── mode pill colour — changes based on actual mode from backend ── */
+  const modePillClass = data.mode === "quant" ? "pill-amber" : "pill-blue";
+  const modeIcon      = data.mode === "quant" ? "📊" : "🧠";
+
+  /* ── confidence pill — backend returns "High" or "Medium" ── */
+  const confClass = data.confidence === "High" ? "pill-green" : "pill-amber";
+
+  /* ── risk alert pill — only shown for quant mode ── */
+  let riskPill = "";
+  if (data.risk_alerts) {
+    const isStable = data.risk_alerts.includes("Stable");
+    riskPill = `<span class="pill ${isStable ? "pill-green" : "pill-red"}">${isStable ? "🟢 Stable Risk" : "🔴 High Risk"}</span>`;
+  }
+
+  /* ── usage fields — backend returns: used_today, daily_limit, used_monthly, monthly_limit ── */
+  const usedToday   = data.usage?.used_today    ?? data.usage?.debates_today         ?? "—";
+  const dailyLimit  = data.usage?.daily_limit                                         ?? "—";
+  const usedMonth   = data.usage?.used_monthly  ?? data.usage?.debates_this_month     ?? "—";
+  const monthLimit  = data.usage?.monthly_limit                                        ?? "—";
+  const planName    = data.usage?.plan ? `<div class="meta-item"><div class="meta-key">Plan</div><div class="meta-val" style="text-transform:capitalize">${data.usage.plan}</div></div>` : "";
+
+  /* ── Mode + meta header ── */
+  html += `
+  <div class="rcard" style="animation-delay:0s">
+    <div class="rcard-head">
+      <div class="rcard-label">Analysis Result</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <span class="pill ${modePillClass}">${modeIcon} ${data.mode.toUpperCase()}</span>
+        <span class="pill ${confClass}">${data.confidence} Confidence</span>
+        ${riskPill}
+      </div>
+    </div>
+    <div class="meta-row">
+      <div class="meta-item"><div class="meta-key">Authority</div><div class="meta-val">${data.authority}</div></div>
+      ${planName}
+      ${data.usage ? `
+      <div class="meta-item"><div class="meta-key">Used Today</div><div class="meta-val">${usedToday} / ${dailyLimit}</div></div>
+      <div class="meta-item"><div class="meta-key">This Month</div><div class="meta-val">${usedMonth} / ${monthLimit}</div></div>
+      ` : ""}
+    </div>
+  </div>`;
+
+  /* ── Transcript ── */
+  data.transcript.forEach((msg, i) => {
+    html += `
+    <div class="rcard" style="animation-delay:${0.05 + i * 0.08}s">
+      <div class="rcard-head">
+        <div class="rcard-label">${msg.role}</div>
+        <span class="pill pill-blue">Analysis</span>
+      </div>
+      <div class="rcard-body">${marked.parse(msg.content)}</div>
+    </div>`;
+  });
+
+  /* ── Deterministic ── */
+  if (data.deterministic) {
+    html += `
+    <div class="rcard" style="animation-delay:.2s">
+      <div class="rcard-head">
+        <div class="rcard-label">🎯 Deterministic Engine</div>
+        <span class="pill pill-amber">Quant</span>
+      </div>
+      <div class="rcard-body">
+        <div class="det-box">${marked.parse(data.deterministic)}</div>
+      </div>
+    </div>`;
+  }
+
+  /* ── Simulation ── */
+  if (data.simulation) {
+    html += `
+    <div class="rcard" style="animation-delay:.25s">
+      <div class="rcard-head">
+        <div class="rcard-label">📊 Monte Carlo Simulation</div>
+        <span class="pill pill-amber">200 trades</span>
+      </div>
+      <div class="rcard-body">${marked.parse(data.simulation)}</div>
+      ${data.simulation_data ? `<div class="chart-wrap"><canvas id="equityChart"></canvas></div>` : ''}
+    </div>`;
+  }
+
+  /* ── Final Answer ── */
+  html += `
+  <div class="rcard" style="animation-delay:.3s;border-color:rgba(0,230,118,.18);">
+    <div class="rcard-head" style="background:rgba(0,200,83,.05);">
+      <div class="rcard-label" style="color:var(--g400);">🏁 Final Decision</div>
+      <span class="pill pill-green">Auditor</span>
+    </div>
+    <div class="rcard-body">${marked.parse(data.final_answer)}</div>
+  </div>`;
+
+  container.innerHTML = html;
+
+  /* ── Render chart ── */
+  if (data.simulation_data && data.simulation_data.length) {
+    const ctx = document.getElementById("equityChart");
+    if (ctx) {
+      equityChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: data.simulation_data.map((_, i) => i + 1),
+          datasets: [{
+            label: "Equity Curve",
+            data: data.simulation_data,
+            borderColor: "#00e676",
+            borderWidth: 1.5,
+            backgroundColor: "rgba(0,230,118,0.06)",
+            fill: true,
+            pointRadius: 0,
+            tension: 0.3,
+          }]
+        },
+        options: {
+          responsive: true,
+          animation: { duration: 800 },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: "#0a1d2e",
+              borderColor: "#1a3d58",
+              borderWidth: 1,
+              titleColor: "#eaf4ff",
+              bodyColor: "#8fb8d4",
+              callbacks: { label: ctx => ` ${ctx.parsed.y.toFixed(4)}x` }
             }
-
-            const res = await fetch(`${API}/register`,{
-                method:"POST",
-                headers:{ "Content-Type":"application/json" },
-                body: JSON.stringify({ username, email, password })
-            });
-
-            const data = await res.json().catch(()=>({}));
-
-            if(!res.ok){
-                showBackendError(data);
-                return;
+          },
+          scales: {
+            x: {
+              ticks: { color: "#3d6b8a", font: { family: "'DM Mono'", size: 10 }, maxTicksLimit: 10 },
+              grid:  { color: "rgba(17,45,68,.6)" }
+            },
+            y: {
+              ticks: { color: "#3d6b8a", font: { family: "'DM Mono'", size: 10 } },
+              grid:  { color: "rgba(17,45,68,.6)" }
             }
-
-            setError("Registration successful. Please login.", true);
-            toggleRegister();
-            return;
+          }
         }
-
-        // LOGIN
-        const form = new FormData();
-        form.append("username", username);
-        form.append("password", password);
-
-        const res = await fetch(`${API}/login`,{
-            method:"POST",
-            body: form
-        });
-
-        const data = await res.json().catch(()=>({}));
-
-        if(!res.ok){
-            showBackendError(data);
-            return;
-        }
-
-        localStorage.setItem("nurox_token", data.access_token);
-        setError("Login successful 🎉", true);
-
-        console.log("Logged in");
-
-    }catch(err){
-        console.error(err);
-        setError("Network error. Backend unreachable.");
+      });
     }
+  }
 }
 
-function showBackendError(data){
+/* ═══════════════ USAGE VIEW ═══════════════ */
+async function loadUsage() {
+  const el = document.getElementById("usageContent");
+  el.innerHTML = `<div class="loading-state"><div class="ldots"><span></span><span></span><span></span></div>Loading usage data...</div>`;
+  try {
+    const res  = await fetch(`${API}/usage`, { headers: authHeaders() });
+    if (res.status === 401) { doLogout(); return; }
+    const d    = await res.json();
 
-    if(!data){
-        setError("Something went wrong.");
-        return;
+    const pct = d.daily_limit ? Math.min(((d.debates_today||0) / d.daily_limit)*100, 100) : 0;
+    const mPct = d.monthly_limit ? Math.min(((d.debates_this_month||0) / d.monthly_limit)*100, 100) : 0;
+
+    el.innerHTML = `
+    <div class="usage-grid">
+      <div class="ustat">
+        <div class="ustat-label">Current Plan</div>
+        <div class="ustat-val" style="font-size:24px;color:var(--t1);">${capFirst(d.plan || 'free')}</div>
+        <div class="ustat-sub">Managed by admin</div>
+      </div>
+      <div class="ustat">
+        <div class="ustat-label">Debates Today</div>
+        <div class="ustat-val">${d.debates_today ?? 0}</div>
+        <div class="ustat-sub">of ${d.daily_limit ?? '∞'} daily limit</div>
+        <div class="ustat-bar"><div class="ustat-bar-fill" style="width:${pct}%"></div></div>
+      </div>
+      <div class="ustat">
+        <div class="ustat-label">This Month</div>
+        <div class="ustat-val">${d.debates_this_month ?? 0}</div>
+        <div class="ustat-sub">of ${d.monthly_limit ?? '∞'} monthly</div>
+        <div class="ustat-bar"><div class="ustat-bar-fill" style="width:${mPct}%;background:linear-gradient(90deg,#1d4ed8,#38bdf8)"></div></div>
+      </div>
+      <div class="ustat">
+        <div class="ustat-label">Total Debates</div>
+        <div class="ustat-val">${d.total_debates ?? 0}</div>
+        <div class="ustat-sub">All time</div>
+      </div>
+    </div>`;
+  } catch {
+    el.innerHTML = `<div style="color:var(--red);font-family:var(--mono);font-size:13px;">Failed to load usage data.</div>`;
+  }
+}
+
+/* ═══════════════ HISTORY VIEW ═══════════════ */
+async function loadHistory() {
+  const el = document.getElementById("historyContent");
+  el.innerHTML = `<div class="loading-state"><div class="ldots"><span></span><span></span><span></span></div>Loading history...</div>`;
+  try {
+    const res  = await fetch(`${API}/history`, { headers: authHeaders() });
+    if (res.status === 401) { doLogout(); return; }
+    const list = await res.json();
+
+    if (!list.length) {
+      el.innerHTML = `<div class="rcard"><div class="rcard-body" style="color:var(--t3);text-align:center;">No analysis history yet. Run your first query!</div></div>`;
+      return;
     }
 
-    if(typeof data.detail === "string"){
-        setError(data.detail);
-        return;
-    }
+    const rows = list.map((h, i) => `
+      <div class="hist-item" onclick="toggleHist(${i})">
+        <div class="hist-q">${h.question}</div>
+        <div class="hist-meta">
+          <span class="pill pill-blue">${h.mode || 'general'}</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--t3);">${formatDate(h.created_at)}</span>
+        </div>
+        <div class="hist-ans" id="hist-${i}">${marked.parse(h.final_answer || '')}</div>
+      </div>`).join("");
 
-    if(Array.isArray(data.detail)){
-        const messages = data.detail.map(e => e.msg).join(", ");
-        setError(messages);
-        return;
-    }
+    el.innerHTML = `<div class="hist-list">${rows}</div>`;
+  } catch {
+    el.innerHTML = `<div style="color:var(--red);font-family:var(--mono);font-size:13px;padding:20px;">Failed to load history.</div>`;
+  }
+}
 
-    setError("Unexpected error.");
+function toggleHist(i) {
+  const el = document.getElementById("hist-" + i);
+  if (el) el.classList.toggle("open");
+}
+
+function formatDate(dt) {
+  if (!dt) return "—";
+  try { return new Date(dt).toLocaleString(undefined, { month:"short", day:"numeric", hour:"2-digit", minute:"2-digit" }); }
+  catch { return dt; }
 }
 </script>
-
 </body>
 </html>

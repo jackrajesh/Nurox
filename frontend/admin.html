@@ -1,156 +1,853 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>NUROX Admin Panel</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'Inter',sans-serif;background:linear-gradient(135deg,#0f172a,#020617);color:#e2e8f0;min-height:100vh;}
-.login-wrap{max-width:400px;margin:120px auto;padding:0 20px;}
-.login-box{background:rgba(30,41,59,0.95);padding:40px;border-radius:20px;border:1px solid #1e293b;}
-.login-box h2{font-size:22px;font-weight:800;margin-bottom:6px;}
-.login-box p{font-size:13px;color:#94a3b8;margin-bottom:24px;}
-.login-box input{width:100%;padding:12px 16px;border-radius:10px;border:1px solid #334155;background:#0f172a;color:white;font-size:14px;margin-bottom:12px;outline:none;}
-.login-box input:focus{border-color:#ef4444;}
-.btn{padding:12px 24px;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px;transition:0.2s;}
-.btn:hover{opacity:0.85;}
-.btn-red{background:linear-gradient(135deg,#ef4444,#dc2626);color:white;width:100%;}
-.btn-gray{background:#334155;color:#e2e8f0;}
-.btn-sm{padding:7px 16px;font-size:13px;}
-.err{color:#f87171;font-size:13px;margin-top:10px;text-align:center;}
-.success{color:#4ade80;font-size:13px;margin-top:10px;text-align:center;}
-.topbar{background:rgba(15,23,42,0.98);padding:14px 32px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #1e293b;}
-.admin-badge{background:#ef4444;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;}
-.container{max-width:1200px;margin:auto;padding:32px 20px;}
-.hidden{display:none;}
-.loading{color:#94a3b8;font-size:14px;padding:20px 0;text-align:center;}
-pre{white-space:pre-wrap;word-wrap:break-word;}
+/* ─── TOKENS ─── */
+:root {
+  --bg:       #020d16;
+  --bg2:      #061522;
+  --surface:  #0a1d2e;
+  --surface2: #0e2438;
+  --border:   #112d44;
+  --border2:  #1a3d58;
+
+  --red:      #f87171;
+  --red-mid:  #ef4444;
+  --r-dim:    rgba(248,113,113,0.08);
+  --r-border: rgba(248,113,113,0.22);
+
+  --green:    #00e676;
+  --g-soft:   #00c853;
+  --g-dim:    rgba(0,230,118,0.07);
+  --g-border: rgba(0,230,118,0.2);
+
+  --blue:     #38bdf8;
+  --b-dim:    rgba(56,189,248,0.08);
+  --b-border: rgba(56,189,248,0.2);
+
+  --amber:    #fbbf24;
+  --a-dim:    rgba(251,191,36,0.08);
+  --a-border: rgba(251,191,36,0.22);
+
+  --t1:    #eaf4ff;
+  --t2:    #8fb8d4;
+  --t3:    #3d6b8a;
+
+  --mono: 'DM Mono', monospace;
+  --sans: 'Outfit', sans-serif;
+  --radius: 16px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin:0; padding:0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--t2);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+/* ─── BG ─── */
+.bg-layer { position: fixed; inset:0; z-index:0; pointer-events:none; }
+.bg-grid {
+  position: absolute; inset:0;
+  background-image:
+    linear-gradient(rgba(248,113,113,.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(248,113,113,.018) 1px, transparent 1px);
+  background-size: 56px 56px;
+  animation: gridPan 40s linear infinite;
+}
+.bg-orb {
+  position: absolute; border-radius:50%; filter:blur(120px);
+}
+.bg-orb-a {
+  width:600px; height:600px; top:-200px; left:-200px;
+  background: radial-gradient(circle, rgba(239,68,68,.045), transparent 70%);
+  animation: orbA 22s ease-in-out infinite alternate;
+}
+.bg-orb-b {
+  width:500px; height:500px; bottom:-150px; right:-150px;
+  background: radial-gradient(circle, rgba(56,189,248,.04), transparent 70%);
+  animation: orbB 28s ease-in-out infinite alternate;
+}
+@keyframes gridPan { to { transform:translateY(56px); } }
+@keyframes orbA    { to { transform:translate(60px,60px) scale(1.15); } }
+@keyframes orbB    { to { transform:translate(-50px,-40px) scale(1.2); } }
+
+/* ─── UTILS ─── */
+.hidden { display:none !important; }
+.page   { position:relative; z-index:1; }
+
+/* ═══════════════════════════════════════
+   LOGIN PAGE
+═══════════════════════════════════════ */
+#loginPage {
+  min-height:100vh;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  padding: 40px 16px;
+}
+
+.login-logo {
+  text-align:center; margin-bottom:44px;
+  animation: fadeDown .7s ease both;
+  display:flex; flex-direction:column; align-items:center; gap:14px;
+}
+.wordmark {
+  font-size: clamp(48px,10vw,72px);
+  font-weight:900; letter-spacing:-3px; line-height:1;
+  display:block;
+}
+.wordmark .nuro { color: var(--t1); }
+.wordmark .x    { color: var(--red-mid); }
+.login-badge {
+  display:inline-flex; align-items:center; gap:6px;
+  background:var(--r-dim); border:1px solid var(--r-border);
+  border-radius:40px; padding:5px 16px;
+  font-family:var(--mono); font-size:10px; color:var(--red);
+  letter-spacing:2px; text-transform:uppercase;
+}
+.login-badge .dot {
+  width:5px; height:5px; border-radius:50%;
+  background:var(--red); animation:pulse 1.5s infinite;
+}
+
+.login-card {
+  width:100%; max-width:400px;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:22px; padding:clamp(24px,5vw,38px);
+  position:relative; overflow:hidden;
+  animation: fadeUp .7s ease .15s both;
+  box-shadow: 0 40px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(239,68,68,.04);
+}
+.login-card::before {
+  content:'';
+  position:absolute; top:0; left:15%; right:15%; height:1px;
+  background:linear-gradient(90deg,transparent,var(--red-mid),transparent);
+  opacity:.45;
+}
+
+.login-card h2 { font-size:19px; font-weight:800; color:var(--t1); margin-bottom:4px; }
+.login-card-sub { font-family:var(--mono); font-size:11px; color:var(--t3); margin-bottom:26px; letter-spacing:.8px; }
+
+.field { margin-bottom:14px; }
+.flabel {
+  display:block; font-family:var(--mono); font-size:10px;
+  color:var(--t3); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:7px;
+}
+input[type=text], input[type=password] {
+  width:100%; padding:12px 15px;
+  border-radius:11px; border:1px solid var(--border);
+  background:var(--bg2); color:var(--t1);
+  font-family:var(--sans); font-size:14px; outline:none;
+  transition:border-color .2s, box-shadow .2s;
+}
+input::placeholder { color:var(--t3); }
+input:focus { border-color:var(--red-mid); box-shadow:0 0 0 3px var(--r-dim); }
+
+.btn-access {
+  width:100%; padding:13px; border:none; border-radius:12px;
+  background:linear-gradient(135deg,#c41230,var(--red-mid));
+  color:#fff; font-family:var(--sans); font-size:14px; font-weight:700;
+  cursor:pointer; transition:all .22s; margin-top:6px; letter-spacing:.3px;
+}
+.btn-access:hover { filter:brightness(1.1); transform:translateY(-1px); }
+.btn-access:active { transform:scale(.98); }
+
+.alert {
+  padding:11px 14px; border-radius:10px;
+  font-family:var(--mono); font-size:12px;
+  margin-top:14px; display:none; line-height:1.5;
+}
+.alert.show { display:block; }
+.alert.err  { background:var(--r-dim); border:1px solid var(--r-border); color:#fca5a5; }
+.alert.ok   { background:var(--g-dim); border:1px solid var(--g-border); color:#6ee7b7; }
+
+/* ═══════════════════════════════════════
+   TOPBAR
+═══════════════════════════════════════ */
+.topbar {
+  position:sticky; top:0; z-index:200;
+  height:62px;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 clamp(14px,4vw,32px);
+  background:rgba(2,13,22,.94);
+  backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--border);
+  gap:12px;
+}
+.topbar-logo { font-size:clamp(20px,4vw,26px); font-weight:900; letter-spacing:-1px; line-height:1; }
+.topbar-logo .nuro { color:var(--t1); }
+.topbar-logo .x    { color:var(--red-mid); }
+.topbar-badge {
+  background:var(--r-dim); border:1px solid var(--r-border);
+  color:var(--red); font-family:var(--mono); font-size:9px;
+  letter-spacing:2px; padding:3px 10px; border-radius:20px; text-transform:uppercase; font-weight:700;
+}
+.topbar-right { display:flex; align-items:center; gap:clamp(8px,2vw,16px); }
+.sys-status {
+  display:flex; align-items:center; gap:6px;
+  font-family:var(--mono); font-size:11px; color:#6ee7b7;
+}
+.sys-dot { width:6px; height:6px; border-radius:50%; background:var(--green); animation:pulse 2s infinite; }
+.btn-logout {
+  padding:7px 14px; background:transparent;
+  border:1px solid var(--border2); border-radius:9px;
+  color:var(--t3); font-family:var(--sans); font-size:12px; font-weight:600;
+  cursor:pointer; transition:all .2s; white-space:nowrap;
+}
+.btn-logout:hover { border-color:var(--red); color:var(--red); }
+
+/* ═══════════════════════════════════════
+   MAIN
+═══════════════════════════════════════ */
+.main {
+  position:relative; z-index:1;
+  max-width:1280px; margin:0 auto;
+  padding:clamp(20px,4vw,36px) clamp(14px,4vw,28px) 60px;
+}
+
+.page-title { margin-bottom:24px; animation:fadeDown .5s ease both; }
+.page-title h1 { font-size:clamp(22px,5vw,30px); font-weight:800; color:var(--t1); letter-spacing:-.5px; line-height:1.2; }
+.page-title-sub { font-family:var(--mono); font-size:11px; color:var(--t3); letter-spacing:1px; margin-top:6px; display:block; }
+
+/* ─── STATS GRID ─── */
+.stats-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(clamp(140px,25vw,200px), 1fr));
+  gap:14px; margin-bottom:24px;
+  animation:fadeUp .5s ease .1s both;
+}
+.stat-card {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius); padding:clamp(16px,3vw,22px);
+  position:relative; overflow:hidden; transition:border-color .2s;
+}
+.stat-card:hover { border-color:var(--border2); }
+.stat-card-top { position:absolute; top:0; left:0; right:0; height:2px; opacity:0; transition:opacity .2s; }
+.stat-card:hover .stat-card-top { opacity:1; }
+.top-green { background:linear-gradient(90deg,var(--g-soft),var(--green)); }
+.top-blue  { background:linear-gradient(90deg,#1d4ed8,var(--blue)); }
+.top-amber { background:linear-gradient(90deg,#b45309,var(--amber)); }
+
+.stat-label { font-family:var(--mono); font-size:9px; color:var(--t3); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:10px; }
+.stat-val   { font-family:var(--mono); font-size:clamp(26px,5vw,34px); font-weight:800; color:var(--t1); line-height:1; margin-bottom:4px; }
+.stat-val.c-green { color:#6ee7b7; }
+.stat-val.c-blue  { color:#7dd3fc; }
+.stat-val.c-amber { color:#fde68a; }
+.stat-desc  { font-size:12px; color:var(--t3); }
+
+/* plan breakdown inline */
+.plan-breakdown { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+.pb-item {
+  font-family:var(--mono); font-size:10px;
+  padding:2px 8px; border-radius:20px; font-weight:600;
+}
+
+/* ─── DATA PANEL ─── */
+.data-panel {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius); overflow:hidden;
+  margin-bottom:22px; animation:fadeUp .5s ease .2s both;
+}
+.data-panel-head {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:clamp(14px,3vw,18px) clamp(16px,3vw,24px);
+  border-bottom:1px solid var(--border);
+  background:var(--surface2); gap:10px; flex-wrap:wrap;
+}
+.data-panel-title {
+  display:flex; align-items:center; gap:10px;
+  font-weight:700; font-size:clamp(14px,3vw,16px); color:var(--t1);
+}
+.dp-icon {
+  width:30px; height:30px; border-radius:8px;
+  display:flex; align-items:center; justify-content:center; font-size:14px;
+  background:var(--b-dim); border:1px solid var(--b-border);
+  flex-shrink:0;
+}
+.dp-count {
+  font-family:var(--mono); font-size:10px; padding:3px 10px;
+  border-radius:20px; letter-spacing:1px;
+  background:var(--b-dim); border:1px solid var(--b-border); color:var(--blue);
+}
+.data-panel-body { padding:clamp(16px,3vw,24px); overflow-x:auto; }
+
+/* ─── TABLE ─── */
+.u-table { width:100%; border-collapse:collapse; min-width:600px; }
+.u-table th {
+  text-align:left; padding:10px 12px;
+  font-family:var(--mono); font-size:9px; color:var(--t3);
+  text-transform:uppercase; letter-spacing:1.5px; font-weight:400;
+  border-bottom:1px solid var(--border); white-space:nowrap;
+}
+.u-table td {
+  padding:12px 12px; border-bottom:1px solid rgba(17,45,68,.4);
+  color:var(--t2); font-size:13px; transition:background .15s;
+  vertical-align:middle;
+}
+.u-table tr:hover td { background:rgba(56,189,248,.025); }
+.u-table tr:last-child td { border-bottom:none; }
+
+/* User cell */
+.u-cell { display:flex; align-items:center; gap:10px; }
+.u-av {
+  width:30px; height:30px; border-radius:8px; flex-shrink:0;
+  background:linear-gradient(135deg,var(--g-soft),var(--green));
+  display:flex; align-items:center; justify-content:center;
+  font-size:12px; font-weight:800; color:#020d08;
+}
+.u-av-red {
+  background:linear-gradient(135deg,#c41230,var(--red-mid));
+  color:#fff;
+}
+.u-nm { font-size:14px; font-weight:700; color:var(--t1); }
+.u-em { font-size:11px; color:var(--t3); font-family:var(--mono); }
+
+/* Status pill */
+.pill {
+  display:inline-flex; align-items:center;
+  padding:3px 9px; border-radius:20px;
+  font-family:var(--mono); font-size:9px; font-weight:600;
+  letter-spacing:.8px; text-transform:uppercase; white-space:nowrap;
+}
+.pill-green  { background:var(--g-dim);   border:1px solid var(--g-border);  color:#6ee7b7; }
+.pill-blue   { background:var(--b-dim);   border:1px solid var(--b-border);  color:#7dd3fc; }
+.pill-amber  { background:var(--a-dim);   border:1px solid var(--a-border);  color:#fde68a; }
+.pill-red    { background:var(--r-dim);   border:1px solid var(--r-border);  color:#fca5a5; }
+.pill-gray   { background:rgba(62,95,118,.1); border:1px solid rgba(62,95,118,.2); color:var(--t3); }
+
+/* Plan selector */
+.plan-select-wrap {
+  display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+}
+.plan-sel {
+  padding:5px 10px; border-radius:9px;
+  border:1px solid var(--border2); background:var(--bg2);
+  color:var(--t1); font-family:var(--sans); font-size:12px;
+  outline:none; cursor:pointer; transition:border-color .2s;
+  min-width:85px;
+}
+.plan-sel:focus { border-color:var(--blue); }
+.btn-plan-save {
+  padding:5px 12px; border:none; border-radius:8px;
+  background:linear-gradient(135deg,var(--g-soft),var(--green));
+  color:#020d08; font-family:var(--sans); font-size:11px; font-weight:700;
+  cursor:pointer; transition:all .2s; white-space:nowrap;
+}
+.btn-plan-save:hover { filter:brightness(1.08); }
+.btn-plan-save:disabled { opacity:.4; cursor:not-allowed; }
+.plan-saved {
+  font-family:var(--mono); font-size:11px; color:#6ee7b7;
+  animation:fadeUp .3s ease both;
+}
+.plan-info {
+  font-family:var(--mono); font-size:9px;
+  animation:fadeUp .3s ease both;
+}
+.plan-err {
+  font-family:var(--mono); font-size:10px; color:#fca5a5;
+  margin-top:4px; line-height:1.4; max-width:220px;
+}
+
+/* Plan limits reference card */
+.plan-ref-card {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius); overflow:hidden;
+  margin-bottom:22px; animation:fadeUp .5s ease .15s both;
+}
+.plan-ref-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(160px,1fr));
+  gap:0;
+}
+.plan-ref-item {
+  padding:18px 20px;
+  border-right:1px solid var(--border);
+  position:relative; overflow:hidden;
+  transition:background .2s;
+}
+.plan-ref-item:last-child { border-right:none; }
+.plan-ref-item:hover { background:var(--surface2); }
+.plan-ref-accent {
+  position:absolute; top:0; left:0; right:0; height:2px;
+}
+.pra-blue  { background:linear-gradient(90deg,#1d4ed8,var(--blue)); }
+.pra-green { background:linear-gradient(90deg,var(--g-soft),var(--green)); }
+.pra-amber { background:linear-gradient(90deg,#b45309,var(--amber)); }
+.pra-gold  { background:linear-gradient(90deg,#92400e,#f59e0b); }
+.plan-ref-name  { font-size:13px; font-weight:700; color:var(--t1); margin-bottom:10px; margin-top:4px; }
+.plan-ref-row   { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+.plan-ref-key   { font-family:var(--mono); font-size:9px; color:var(--t3); text-transform:uppercase; letter-spacing:1px; }
+.plan-ref-val   { font-family:var(--mono); font-size:12px; font-weight:600; color:var(--t1); }
+
+/* Loading */
+.loading-state {
+  display:flex; align-items:center; gap:12px;
+  padding:32px 0; font-family:var(--mono); font-size:12px; color:var(--t3);
+}
+.ldots span {
+  display:inline-block; width:5px; height:5px; border-radius:50%;
+  background:var(--red-mid); animation:ldot 1.2s infinite; margin:0 2px;
+}
+.ldots span:nth-child(2) { animation-delay:.2s; }
+.ldots span:nth-child(3) { animation-delay:.4s; }
+
+/* Empty */
+.empty-state { padding:32px 0; text-align:center; color:var(--t3); font-family:var(--mono); font-size:12px; }
+
+.footer {
+  text-align:center; font-family:var(--mono); font-size:10px;
+  color:#0e2a40; letter-spacing:2px; text-transform:uppercase;
+  padding:28px 0 36px; animation:fadeUp .8s ease .4s both;
+}
+
+/* ANIMS */
+@keyframes fadeUp   { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:none} }
+@keyframes fadeDown { from{opacity:0;transform:translateY(-10px)} to{opacity:1;transform:none} }
+@keyframes pulse    { 0%,100%{opacity:1} 50%{opacity:.3} }
+@keyframes ldot     { 0%,80%,100%{transform:translateY(0)} 40%{transform:translateY(-5px)} }
+
+/* RESPONSIVE */
+@media(max-width:768px) {
+  .stats-grid { grid-template-columns:repeat(2,1fr); }
+  .sys-status span:not(.sys-dot) { display:none; }
+}
+@media(max-width:480px) {
+  .stats-grid { grid-template-columns:1fr 1fr; }
+  .topbar-badge { display:none; }
+  .data-panel-body { padding:14px 0; }
+}
 </style>
 </head>
-
 <body>
 
-<div id="loginPage">
-  <div class="login-wrap">
-    <div class="login-box">
-      <h2>🔐 Admin Panel</h2>
-      <p>NUROX restricted access only</p>
-      <input id="adminUser" type="text" placeholder="Admin Username" />
-      <input id="adminPass" type="password" placeholder="Admin Password" />
-      <button class="btn btn-red" onclick="doAdminLogin()">Access Panel</button>
-      <div id="loginErr" class="err"></div>
+<div class="bg-layer" aria-hidden="true">
+  <div class="bg-grid"></div>
+  <div class="bg-orb bg-orb-a"></div>
+  <div class="bg-orb bg-orb-b"></div>
+</div>
+
+<!-- ═══════════ LOGIN PAGE ═══════════ -->
+<div id="loginPage" class="page">
+  <div class="login-logo">
+    <div class="wordmark"><span class="nuro">NURO</span><span class="x">X</span></div>
+    <div class="login-badge"><span class="dot"></span>Restricted Admin Access</div>
+  </div>
+
+  <div class="login-card">
+    <h2>🔐 Admin Login</h2>
+    <div class="login-card-sub">NUROX Control Panel · v6.3</div>
+
+    <div class="field">
+      <label class="flabel">Admin Username</label>
+      <input id="aUser" type="text" placeholder="Enter admin username" autocomplete="username"/>
     </div>
+    <div class="field">
+      <label class="flabel">Admin Password</label>
+      <input id="aPass" type="password" placeholder="Enter admin password" autocomplete="current-password"/>
+    </div>
+    <button class="btn-access" onclick="doLogin()">Access Panel →</button>
+    <div id="loginAlert" class="alert"></div>
   </div>
 </div>
 
-<div id="mainPanel" class="hidden">
+<!-- ═══════════ MAIN PANEL ═══════════ -->
+<div id="mainPanel" class="page hidden">
   <div class="topbar">
-    <div>🚀 NUROX <span class="admin-badge">ADMIN</span></div>
-    <button class="btn btn-gray btn-sm" onclick="doLogout()">Logout</button>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div class="topbar-logo"><span class="nuro">NURO</span><span class="x">X</span></div>
+      <div class="topbar-badge">Admin</div>
+    </div>
+    <div class="topbar-right">
+      <div class="sys-status"><span class="sys-dot"></span><span>System Online</span></div>
+      <button class="btn-logout" onclick="doLogout()">Sign Out</button>
+    </div>
   </div>
-  <div class="container">
-    <div id="statsGrid"><div class="loading">Loading stats...</div></div>
-    <div id="usersTable"><div class="loading">Loading users...</div></div>
+
+  <div class="main">
+    <div class="page-title">
+      <h1>System Overview</h1>
+      <div class="page-title-sub">// Live dashboard · refreshed on load</div>
+    </div>
+
+    <!-- Stats -->
+    <div id="statsGrid" class="stats-grid">
+      <div class="stat-card">
+        <div class="loading-state"><div class="ldots"><span></span><span></span><span></span></div>Loading...</div>
+      </div>
+    </div>
+
+    <!-- Plan Limits Reference -->
+    <div class="plan-ref-card">
+      <div class="data-panel-head" style="background:var(--surface2);">
+        <div class="data-panel-title">
+          <div class="dp-icon" style="background:var(--a-dim);border-color:var(--a-border);">📋</div>
+          Plan Limits Reference
+        </div>
+        <div class="dp-count" style="background:var(--a-dim);border-color:var(--a-border);color:var(--amber);">Change plan below ↓</div>
+      </div>
+      <div class="plan-ref-grid">
+        <div class="plan-ref-item">
+          <div class="plan-ref-accent pra-blue"></div>
+          <div class="plan-ref-name">🆓 Free</div>
+          <div class="plan-ref-row"><span class="plan-ref-key">Daily</span><span class="plan-ref-val">5 debates</span></div>
+          <div class="plan-ref-row"><span class="plan-ref-key">Monthly</span><span class="plan-ref-val">30 debates</span></div>
+          <div class="plan-ref-row"><span class="plan-ref-key">Rate</span><span class="plan-ref-val">2 / min</span></div>
+        </div>
+        <div class="plan-ref-item">
+          <div class="plan-ref-accent pra-green"></div>
+          <div class="plan-ref-name">⚡ Pro</div>
+          <div class="plan-ref-row"><span class="plan-ref-key">Daily</span><span class="plan-ref-val">20 debates</span></div>
+          <div class="plan-ref-row"><span class="plan-ref-key">Monthly</span><span class="plan-ref-val">100 debates</span></div>
+          <div class="plan-ref-row"><span class="plan-ref-key">Rate</span><span class="plan-ref-val">5 / min</span></div>
+        </div>
+        <div class="plan-ref-item" style="border-right:none;">
+          <div class="plan-ref-accent pra-gold"></div>
+          <div class="plan-ref-name">👑 Enterprise</div>
+          <div class="plan-ref-row"><span class="plan-ref-key">Daily</span><span class="plan-ref-val" style="color:var(--amber);">Unlimited</span></div>
+          <div class="plan-ref-row"><span class="plan-ref-key">Monthly</span><span class="plan-ref-val" style="color:var(--amber);">Unlimited</span></div>
+          <div class="plan-ref-row"><span class="plan-ref-key">Rate</span><span class="plan-ref-val" style="color:var(--amber);">Unlimited</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Users -->
+    <div class="data-panel">
+      <div class="data-panel-head">
+        <div class="data-panel-title">
+          <div class="dp-icon">👥</div>
+          User Registry
+        </div>
+        <div class="dp-count" id="userCount">— users</div>
+      </div>
+      <div class="data-panel-body">
+        <div id="usersTable">
+          <div class="loading-state"><div class="ldots"><span></span><span></span><span></span></div>Loading users...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">NUROX ADMIN · CONFIDENTIAL · ALL ACTIONS LOGGED</div>
   </div>
 </div>
 
 <script>
-
 const API = "https://nurox-eqsd.onrender.com";
-let adminCredentials = null;
+let adminCreds = null;
 
-function setLoginError(message){
-  const box = document.getElementById("loginErr");
-  box.textContent = message;
+/* ── helpers ── */
+function showAlert(id, msg, type) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className   = "alert" + (msg ? " show " + type : "");
 }
+function capFirst(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
 
-async function doAdminLogin() {
-
-  const u = document.getElementById("adminUser").value.trim();
-  const p = document.getElementById("adminPass").value.trim();
-  setLoginError("");
-
-  if (!u || !p) {
-    setLoginError("Fill in both fields.");
-    return;
-  }
-
-  adminCredentials = btoa(u + ":" + p);
-
+/* ── LOGIN ── */
+async function doLogin() {
+  const u = document.getElementById("aUser").value.trim();
+  const p = document.getElementById("aPass").value.trim();
+  showAlert("loginAlert","","");
+  if (!u || !p) { showAlert("loginAlert","Please fill in both fields.","err"); return; }
+  adminCreds = btoa(u + ":" + p);
+  showAlert("loginAlert","Authenticating...","ok");
   try {
-
-    const res = await fetch(`${API}/shadow-admin/stats`, {
-      headers: { "Authorization": `Basic ${adminCredentials}` }
-    });
-
-    if (!res.ok) {
-      setLoginError("Wrong credentials.");
-      adminCredentials = null;
-      return;
-    }
-
+    const res = await fetch(`${API}/shadow-admin/stats`, { headers: adminHeaders() });
+    if (!res.ok) { showAlert("loginAlert","Invalid credentials. Access denied.","err"); adminCreds = null; return; }
     document.getElementById("loginPage").classList.add("hidden");
     document.getElementById("mainPanel").classList.remove("hidden");
-
-    await loadStats();
-    await loadUsers();
-
-  } catch (err) {
-    console.error(err);
-    setLoginError("Cannot connect to server.");
-    adminCredentials = null;
-  }
+    await Promise.all([loadStats(), loadUsers()]);
+  } catch { showAlert("loginAlert","Cannot connect to server.","err"); adminCreds = null; }
 }
 
 function doLogout() {
-  adminCredentials = null;
+  adminCreds = null;
   document.getElementById("loginPage").classList.remove("hidden");
   document.getElementById("mainPanel").classList.add("hidden");
-  document.getElementById("statsGrid").innerHTML = `<div class="loading">Loading stats...</div>`;
-  document.getElementById("usersTable").innerHTML = `<div class="loading">Loading users...</div>`;
+  resetPanel();
 }
 
-async function safeFetch(endpoint){
-  const res = await fetch(`${API}${endpoint}`, {
-    headers: { "Authorization": `Basic ${adminCredentials}` }
-  });
+function resetPanel() {
+  document.getElementById("statsGrid").innerHTML = `<div class="stat-card"><div class="loading-state"><div class="ldots"><span></span><span></span><span></span></div>Loading...</div></div>`;
+  document.getElementById("usersTable").innerHTML = `<div class="loading-state"><div class="ldots"><span></span><span></span><span></span></div>Loading...</div>`;
+  document.getElementById("userCount").textContent = "— users";
+}
 
-  if(res.status === 401){
-    doLogout();
-    throw new Error("Unauthorized");
-  }
+function adminHeaders() { return { "Authorization": `Basic ${adminCreds}` }; }
 
-  if(!res.ok){
-    throw new Error("Request failed");
-  }
-
+async function safeFetch(endpoint) {
+  const res = await fetch(`${API}${endpoint}`, { headers: adminHeaders() });
+  if (res.status === 401) { doLogout(); throw new Error("Unauthorized"); }
+  if (!res.ok)  throw new Error(`Request failed: ${res.status}`);
   return res.json();
 }
 
+/* ── STATS ── */
 async function loadStats() {
   try {
     const data = await safeFetch("/shadow-admin/stats");
-    document.getElementById("statsGrid").innerHTML =
-      `<pre style="color:#22c55e;">${JSON.stringify(data, null, 2)}</pre>`;
-  } catch (err) {
-    document.getElementById("statsGrid").innerHTML =
-      `<div class="err">Failed to load stats.</div>`;
+
+    /* Pull out known keys, handle plan_breakdown separately */
+    const totalUsers   = data.total_users   ?? data.users   ?? "—";
+    const totalDebates = data.total_debates ?? data.debates ?? "—";
+    const planBreakdown= data.plan_breakdown;
+
+    let pbHTML = "";
+    if (planBreakdown && typeof planBreakdown === "object" && !Array.isArray(planBreakdown)) {
+      Object.entries(planBreakdown).forEach(([plan, count]) => {
+        const cls = plan === "free" ? "pill-blue"
+                  : plan === "pro"  ? "pill-green"
+                  : plan === "enterprise" ? "pill-amber"
+                  : "pill-gray";
+        pbHTML += `<span class="pill ${cls}">${capFirst(plan)}: ${count}</span>`;
+      });
+    } else if (typeof planBreakdown === "string") {
+      pbHTML = `<span style="color:var(--t2);font-size:13px;">${planBreakdown}</span>`;
+    }
+
+    /* Any extra keys */
+    const knownKeys = new Set(["total_users","users","total_debates","debates","plan_breakdown"]);
+    const extraCards = Object.entries(data)
+      .filter(([k]) => !knownKeys.has(k))
+      .map(([k, v], i) => {
+        const cls = i % 3 === 0 ? "c-blue" : i % 3 === 1 ? "c-amber" : "";
+        const topCls = i % 3 === 0 ? "top-blue" : i % 3 === 1 ? "top-amber" : "top-green";
+        const label = k.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase());
+        const display = typeof v === "object" ? JSON.stringify(v) : v;
+        return `<div class="stat-card"><div class="stat-card-top ${topCls}"></div>
+          <div class="stat-label">${label}</div>
+          <div class="stat-val ${cls}" style="font-size:clamp(18px,3vw,26px)">${display}</div>
+          <div class="stat-desc">Current value</div></div>`;
+      }).join("");
+
+    document.getElementById("statsGrid").innerHTML = `
+      <div class="stat-card">
+        <div class="stat-card-top top-green"></div>
+        <div class="stat-label">Total Users</div>
+        <div class="stat-val c-green">${totalUsers}</div>
+        <div class="stat-desc">Registered accounts</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-top top-blue"></div>
+        <div class="stat-label">Total Debates</div>
+        <div class="stat-val c-blue">${totalDebates}</div>
+        <div class="stat-desc">All time</div>
+      </div>
+      ${pbHTML ? `
+      <div class="stat-card" style="grid-column:span 1;">
+        <div class="stat-card-top top-amber"></div>
+        <div class="stat-label">Plan Breakdown</div>
+        <div class="plan-breakdown" style="margin-top:10px;">${pbHTML}</div>
+      </div>` : ""}
+      ${extraCards}
+    `;
+  } catch(e) {
+    if (e.message !== "Unauthorized")
+      document.getElementById("statsGrid").innerHTML = `<div class="stat-card"><div class="stat-desc" style="color:var(--red);">Failed to load stats.</div></div>`;
   }
 }
 
+/* ── USERS ── */
 async function loadUsers() {
   try {
     const data = await safeFetch("/shadow-admin/users");
-    document.getElementById("usersTable").innerHTML =
-      `<pre style="color:#93c5fd;">${JSON.stringify(data, null, 2)}</pre>`;
-  } catch (err) {
-    document.getElementById("usersTable").innerHTML =
-      `<div class="err">Failed to load users.</div>`;
+    const users = Array.isArray(data) ? data : (data.users || []);
+
+    document.getElementById("userCount").textContent = `${users.length} user${users.length!==1?"s":""}`;
+
+    if (!users.length) {
+      document.getElementById("usersTable").innerHTML = `<div class="empty-state">No users found.</div>`;
+      return;
+    }
+
+    /* Build table with plan selector per user */
+    const rows = users.map(u => {
+      const uid      = u.id;
+      const username = u.username || "—";
+      const email    = u.email    || "—";
+      const plan     = (u.plan    || "free").toLowerCase();
+      const active   = u.is_active !== false;
+      const created  = formatDate(u.created_at);
+      const debatesToday = u.debates_today       ?? "—";
+      const debatesMo    = u.debates_this_month  ?? "—";
+      const total        = u.total_debates       ?? "—";
+      const initial  = username[0].toUpperCase();
+
+      const planLimits = PLAN_LIMITS[plan] || PLAN_LIMITS.free;
+      const limitStr = planLimits.monthly === 9999 ? "∞/day · ∞/mo" : `${planLimits.daily}/day · ${planLimits.monthly}/mo`;
+
+      const avColor = plan === "pro"
+        ? "background:linear-gradient(135deg,#00c853,#00e676)"
+        : (plan === "elite" || plan === "premium")
+          ? "background:linear-gradient(135deg,#b45309,#fbbf24)"
+          : "background:linear-gradient(135deg,#1d4ed8,#38bdf8)";
+
+      return `
+      <tr>
+        <td style="color:var(--t3);font-family:var(--mono);font-size:11px;">${uid}</td>
+        <td>
+          <div class="u-cell">
+            <div class="u-av" id="av-${uid}" style="${avColor};color:${plan === "pro" ? "#020d08" : plan === "free" ? "#fff" : "#fff"}">${initial}</div>
+            <div>
+              <div class="u-nm">${username}</div>
+              <div class="u-em">${email}</div>
+            </div>
+          </div>
+        </td>
+        <td>
+          <div class="plan-select-wrap">
+            <select class="plan-sel" id="planSel-${uid}" onchange="onPlanChange(${uid})">
+              <option value="free"       ${plan==="free"       ?"selected":""}>🆓 Free</option>
+              <option value="pro"        ${plan==="pro"        ?"selected":""}>⚡ Pro</option>
+              <option value="enterprise" ${plan==="enterprise" ?"selected":""}>👑 Enterprise</option>
+            </select>
+            <button class="btn-plan-save" id="planBtn-${uid}" onclick="savePlan(${uid}, '${username}')" disabled>Save</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap;">
+            <span class="plan-info pill ${planLimits.color}" id="planInfo-${uid}">${limitStr}</span>
+            <span id="planMsg-${uid}" class="plan-saved hidden">✓ Saved</span>
+          </div>
+          <div class="plan-err hidden" id="planErr-${uid}"></div>
+        </td>
+        <td>${active
+          ? '<span class="pill pill-green">Active</span>'
+          : '<span class="pill pill-red">Inactive</span>'}</td>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--t3);">${created}</td>
+        <td style="font-family:var(--mono);">${debatesToday}</td>
+        <td style="font-family:var(--mono);">${debatesMo}</td>
+        <td style="font-family:var(--mono);">${total}</td>
+      </tr>`;
+    }).join("");
+
+    document.getElementById("usersTable").innerHTML = `
+      <table class="u-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>User</th>
+            <th>Plan</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th>Today</th>
+            <th>Monthly</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    `;
+
+  } catch(e) {
+    if (e.message !== "Unauthorized")
+      document.getElementById("usersTable").innerHTML = `<div class="empty-state" style="color:var(--red);">Failed to load users.</div>`;
   }
 }
 
-</script>
+/* ── PLAN LIMITS — matches backend PLAN_LIMITS in database/models.py ── */
+const PLAN_LIMITS = {
+  free:       { daily: 5,   monthly: 30,   label: "Free",       color: "pill-blue",  avBg: "linear-gradient(135deg,#1d4ed8,#38bdf8)", avColor: "#fff"     },
+  pro:        { daily: 20,  monthly: 100,  label: "Pro",        color: "pill-green", avBg: "linear-gradient(135deg,#00c853,#00e676)", avColor: "#020d08"  },
+  enterprise: { daily: -1,  monthly: -1,   label: "Enterprise", color: "pill-amber", avBg: "linear-gradient(135deg,#b45309,#fbbf24)", avColor: "#020d08"  },
+};
 
+/* ── PLAN CHANGE ── */
+function onPlanChange(uid) {
+  const btn  = document.getElementById(`planBtn-${uid}`);
+  const msg  = document.getElementById(`planMsg-${uid}`);
+  const info = document.getElementById(`planInfo-${uid}`);
+  const errEl= document.getElementById(`planErr-${uid}`);
+  const sel  = document.getElementById(`planSel-${uid}`);
+  if (btn)  btn.disabled = false;
+  if (msg)  msg.classList.add("hidden");
+  if (errEl){ errEl.textContent = ""; errEl.classList.add("hidden"); }
+  if (info && sel) {
+    const p = PLAN_LIMITS[sel.value] || PLAN_LIMITS.free;
+    const dStr = p.daily   === -1 ? "∞" : p.daily;
+    const mStr = p.monthly === -1 ? "∞" : p.monthly;
+    info.textContent = `${dStr}/day · ${mStr}/mo`;
+    info.className = `plan-info pill ${p.color}`;
+  }
+}
+
+async function savePlan(uid, username) {
+  const sel  = document.getElementById(`planSel-${uid}`);
+  const btn  = document.getElementById(`planBtn-${uid}`);
+  const msg  = document.getElementById(`planMsg-${uid}`);
+  const errEl= document.getElementById(`planErr-${uid}`);
+  if (!sel) return;
+
+  const plan = sel.value;
+  btn.disabled    = true;
+  btn.textContent = "…";
+  if (errEl) { errEl.textContent = ""; errEl.classList.add("hidden"); }
+
+  try {
+    /*
+      Backend endpoint (from routes.py):
+      POST /shadow-admin/upgrade?username={username}&plan={plan}
+      Auth: Basic, no body needed — params are query strings
+    */
+    const url = `${API}/shadow-admin/upgrade?username=${encodeURIComponent(username)}&plan=${encodeURIComponent(plan)}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: adminHeaders()   // Basic auth only, no Content-Type needed
+    });
+
+    if (res.status === 401) { doLogout(); return; }
+
+    const data = await res.json().catch(() => ({}));
+
+    if (res.ok) {
+      /* ✅ Success */
+      btn.textContent = "Save";
+      btn.disabled    = false;
+      if (msg) {
+        msg.textContent = "✓ Saved";
+        msg.classList.remove("hidden");
+        setTimeout(() => msg.classList.add("hidden"), 3500);
+      }
+      /* Update avatar colour to reflect new plan */
+      const av = document.getElementById(`av-${uid}`);
+      const pl = PLAN_LIMITS[plan] || PLAN_LIMITS.free;
+      if (av) {
+        av.style.background = pl.avBg;
+        av.style.color      = pl.avColor;
+      }
+      /* Refresh stats so plan breakdown updates */
+      await loadStats();
+    } else {
+      /* ❌ Backend returned an error */
+      btn.textContent = "Save";
+      btn.disabled    = false;
+      let errMsg = "Save failed.";
+      if (typeof data.detail === "string")       errMsg = data.detail;
+      else if (Array.isArray(data.detail))       errMsg = data.detail.map(d => d.msg || d).join(" · ");
+      else if (data.detail?.message)             errMsg = data.detail.message;
+      if (errEl) { errEl.textContent = errMsg; errEl.classList.remove("hidden"); }
+    }
+  } catch (e) {
+    btn.textContent = "Save";
+    btn.disabled    = false;
+    if (errEl) { errEl.textContent = "Network error — server unreachable."; errEl.classList.remove("hidden"); }
+  }
+}
+
+/* ── UTILS ── */
+function formatDate(dt) {
+  if (!dt) return "—";
+  try {
+    return new Date(dt).toLocaleString(undefined, { month:"short", day:"numeric", year:"numeric", hour:"2-digit", minute:"2-digit" });
+  } catch { return dt; }
+}
+</script>
 </body>
 </html>
